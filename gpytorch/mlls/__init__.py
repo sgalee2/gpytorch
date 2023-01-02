@@ -3,6 +3,9 @@
 import warnings
 
 from .added_loss_term import AddedLossTerm
+from .computation_aware_marginal_log_likelihood import (
+    ComputationAwareMarginalLogLikelihood,
+)
 from .deep_approximate_mll import DeepApproximateMLL
 from .deep_predictive_log_likelihood import DeepPredictiveLogLikelihood
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -22,7 +25,8 @@ class VariationalMarginalLogLikelihood(VariationalELBO):
     def __init__(self, *args, **kwargs):
         # Remove after 1.0
         warnings.warn(
-            "VariationalMarginalLogLikelihood is deprecated. Please use VariationalELBO instead.", DeprecationWarning
+            "VariationalMarginalLogLikelihood is deprecated. Please use VariationalELBO instead.",
+            DeprecationWarning,
         )
         super().__init__(*args, **kwargs)
 
@@ -30,12 +34,16 @@ class VariationalMarginalLogLikelihood(VariationalELBO):
 class VariationalELBOEmpirical(VariationalELBO):
     def __init__(self, *args, **kwargs):
         # Remove after 1.0
-        warnings.warn("VariationalELBOEmpirical is deprecated. Please use VariationalELBO instead.", DeprecationWarning)
+        warnings.warn(
+            "VariationalELBOEmpirical is deprecated. Please use VariationalELBO instead.",
+            DeprecationWarning,
+        )
         super().__init__(*args, **kwargs)
 
 
 __all__ = [
     "AddedLossTerm",
+    "ComputationAwareMarginalLogLikelihood",
     "DeepApproximateMLL",
     "DeepPredictiveLogLikelihood",
     "ExactMarginalLogLikelihood",
