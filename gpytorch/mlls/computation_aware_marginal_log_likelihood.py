@@ -39,7 +39,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
             ).covariance_matrix
 
         repr_weights, Khat_inv_approx, searchdir_sqnorms = self.linear_solver.solve(
-            to_linear_operator(Khat), target
+            to_linear_operator(Khat), target  # TODO: do not omit prior mean here
         )  # TODO: do not do another linear solve in here, rather pass results from solve stored in model, after model(train_x) call
 
         # Implementing this via an autograd function is the recommended pattern by
