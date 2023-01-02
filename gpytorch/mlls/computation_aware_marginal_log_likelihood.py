@@ -1,17 +1,53 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import math
 
 import torch
 from linear_operator import to_linear_operator
 
+from ..likelihoods import GaussianLikelihood, _GaussianLikelihoodBase
+from ..models import ExactGP
+from .marginal_log_likelihood import MarginalLogLikelihood
 
-class ComputationAwareMarginalLogLikelihood(torch.autograd.Function):
+
+class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
     """
-    TODO
+    Computation-aware marginal log-likelihood for a Gaussian process with a computation-aware Gaussian likelihood.
+
+
+    :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
+    :param ~gpytorch.models.ExactGP model: The exact GP model
+
+    Example:
+        >>> mll = gpytorch.mlls.ComputationAwareMarginalLogLikelihood(likelihood, model)
+        >>> output = model(train_x)
+        >>> loss = -mll(output, train_y)
+        >>> loss.backward()
     """
+
+    def __init__(self, likelihood: GaussianLikelihood, model: ExactGP):
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
+            raise RuntimeError("Likelihood must be Gaussian for exact inference.")
+        super().__init__(likelihood, model)
+
+    def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
+        # Implementing this via an autograd function is the recommended pattern by
+        # PyTorch for extending nn.Module with a custom backward pass.
+        # See also: https://pytorch.org/docs/stable/notes/extending.html#extending-torch-nn
+        return ComputationAwareMarginalLogLikelihoodFunction.apply(
+            self.model.Khat, target, self.model.linear_solver
+        )
+        # TODO: are all these arguments saved in model and available after calling model(train_x)?
+        # TODO: can we forego another linear solve by simply passing "repr_weights, prec_approx, Khat"? These should have been computed in model(train_x) anyway.
+
+
+class ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
+    """Autograd function computing the computation-aware marginal log-likelihood."""
 
     @staticmethod
     def forward(ctx, Khat: torch.Tensor, y: torch.Tensor, linear_solver):
+        # TODO: do not do another linear solve in here, rather pass results from solve stored in model, after model(train_x) call
         repr_weights, prec_approx, etas = linear_solver.solve(
             to_linear_operator(Khat), y
         )

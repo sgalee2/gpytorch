@@ -12,7 +12,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
     """
     The leave one out cross-validation (LOO-CV) likelihood from RW 5.4.2 for an exact Gaussian process with a
     Gaussian likelihood. This offers an alternative to the exact marginal log likelihood where we
-    instead maximize the sum of the leave one out log probabilities :math:`\log p(y_i | X, y_{-i}, \theta)`.
+    instead maximize the sum of the leave one out log probabilities :math:`\log p(y_i | X, y_{-i}, \\theta)`.
 
     Naively, this will be O(n^4) with Cholesky as we need to compute `n` Cholesky factorizations. Fortunately,
     given the Cholesky factorization of the full kernel matrix (without any points removed), we can compute
@@ -45,7 +45,9 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         self.likelihood = likelihood
         self.model = model
 
-    def forward(self, function_dist: MultivariateNormal, target: Tensor, *params) -> Tensor:
+    def forward(
+        self, function_dist: MultivariateNormal, target: Tensor, *params
+    ) -> Tensor:
         r"""
         Computes the leave one out likelihood given :math:`p(\mathbf f)` and `\mathbf y`
 
@@ -58,8 +60,14 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         m, L = output.mean, output.lazy_covariance_matrix.cholesky(upper=False)
         m = m.reshape(*target.shape)
         identity = torch.eye(*L.shape[-2:], dtype=m.dtype, device=m.device)
-        sigma2 = 1.0 / L._cholesky_solve(identity, upper=False).diagonal(dim1=-1, dim2=-2)  # 1 / diag(inv(K))
-        mu = target - L._cholesky_solve((target - m).unsqueeze(-1), upper=False).squeeze(-1) * sigma2
+        sigma2 = 1.0 / L._cholesky_solve(identity, upper=False).diagonal(
+            dim1=-1, dim2=-2
+        )  # 1 / diag(inv(K))
+        mu = (
+            target
+            - L._cholesky_solve((target - m).unsqueeze(-1), upper=False).squeeze(-1)
+            * sigma2
+        )
         term1 = -0.5 * sigma2.log()
         term2 = -0.5 * (target - mu).pow(2.0) / sigma2
         res = (term1 + term2).sum(dim=-1)
