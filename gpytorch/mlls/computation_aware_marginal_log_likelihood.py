@@ -43,14 +43,14 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         )
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op
-        searchdir_sqnorms = solver_state.cache["search_dir_sq_Anorms"]
+        logdet_estimate = solver_state.logdet
         # TODO: do not do another linear solve in here, rather pass results from solve stored in model, after model(train_x) call
 
         # Implementing this via an autograd function is the recommended pattern by
         # PyTorch for extending nn.Module with a custom backward pass.
         # See also: https://pytorch.org/docs/stable/notes/extending.html#extending-torch-nn
         return _ComputationAwareMarginalLogLikelihoodFunction.apply(
-            Khat, target, repr_weights, Khat_inv_approx, searchdir_sqnorms
+            Khat, target, repr_weights, Khat_inv_approx, logdet_estimate
         )
 
 
@@ -64,11 +64,11 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         y: torch.Tensor,
         repr_weights: torch.Tensor,
         Khat_inv_approx: torch.Tensor,
-        searchdir_sqnorms: torch.Tensor,
+        logdet_estimate: torch.Tensor,
     ):
         lml = -0.5 * (
             torch.inner(y, repr_weights)
-            + torch.sum(torch.log(searchdir_sqnorms))
+            + logdet_estimate
             + Khat.shape[-1] * math.log(2 * math.pi)
         )
 
