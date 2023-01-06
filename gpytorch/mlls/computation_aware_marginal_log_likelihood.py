@@ -38,9 +38,10 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
                 self.model(*self.model.train_inputs)
             ).covariance_matrix
 
-        solver_state = self.linear_solver.solve(
-            to_linear_operator(Khat), target  # TODO: do not omit prior mean here
-        )
+        with torch.no_grad():
+            solver_state = self.linear_solver.solve(
+                to_linear_operator(Khat), target  # TODO: do not omit prior mean here
+            )
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op
         logdet_estimate = solver_state.logdet
