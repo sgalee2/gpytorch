@@ -2,9 +2,11 @@
 
 import functools
 import string
+from typing import Optional
 
 import torch
 from linear_operator import to_dense, to_linear_operator
+from linear_operator.linear_solvers import LinearSolver
 from linear_operator.operators import (
     AddedDiagLinearOperator,
     BatchRepeatLinearOperator,
@@ -967,3 +969,65 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
 
         res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
         return res
+
+
+class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
+    """A Gaussian process prediction strategy which considers the performed computation."""
+
+    def __init__(
+        self,
+        train_inputs,
+        train_prior_dist,
+        train_labels,
+        likelihood,
+        linear_solver: LinearSolver,
+        root: Optional[RootLinearOperator] = None,
+        inv_root: Optional[RootLinearOperator] = None,
+    ):
+        self._linear_solver = linear_solver
+        super().__init__(
+            train_inputs, train_prior_dist, train_labels, likelihood, root, inv_root
+        )
+
+    def get_fantasy_strategy(
+        self, inputs, targets, full_inputs, full_targets, full_output, **kwargs
+    ):
+        raise NotImplementedError(
+            "Fantasy observation updates not yet supported for computation-aware Gaussian processes."
+        )
+
+    @property
+    def linear_solver(self) -> LinearSolver:
+        """The linear solver used for inference."""
+        return self._linear_solver
+
+    @property
+    @cached(name="mean_cache")
+    def mean_cache(self) -> torch.Tensor:
+        """Compute the representer weights."""
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+
+        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
+
+        # Compute the representer weights with the given linear solver
+        solver_state = self.linear_solver.solve(
+            train_train_covar.evaluate_kernel(), train_labels_offset
+        )
+        mean_cache = solver_state.solution.squeeze(-1)
+        # TODO: Should we really do the solve here and not in computation-aware GPs? We need it in the MLL again.
+
+        if settings.detach_test_caches.on():
+            mean_cache = mean_cache.detach()
+
+        return mean_cache
+
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self) -> RootLinearOperator:
+        raise NotImplementedError
+
+    def exact_predictive_covar(
+        self, test_test_covar: LinearOperator, test_train_covar: LinearOperator
+    ):
+        raise NotImplementedError

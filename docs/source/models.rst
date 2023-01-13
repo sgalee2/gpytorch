@@ -17,6 +17,11 @@ Models for Exact GP Inference
 .. autoclass:: ExactGP
    :members:
 
+:hidden:`ComputationAwareGP`
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ComputationAwareGP
+   :members:
 
 Models for Approximate GP Inference
 -----------------------------------

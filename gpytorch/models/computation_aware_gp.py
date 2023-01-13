@@ -1,6 +1,7 @@
 import warnings
 
 import torch
+from linear_operator.linear_solvers import LinearSolver
 
 from .. import settings
 from ..distributions import MultivariateNormal
@@ -16,7 +17,14 @@ class ComputationAwareGP(ExactGP):
     :param train_inputs: (size n x d) The training features :math:`\mathbf X`.
     :param train_targets: (size n) The training targets :math:`\mathbf y`.
     :param  likelihood: The Gaussian likelihood that defines the observational distribution.
+    :param linear_solver: The linear solver used for inference.
     """
+
+    def __init__(
+        self, train_inputs, train_targets, likelihood, linear_solver: LinearSolver
+    ):
+        self._linear_solver = linear_solver
+        super().__init__(train_inputs, train_targets, likelihood)
 
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
@@ -120,9 +128,16 @@ class ComputationAwareGP(ExactGP):
                     predictive_mean,
                     predictive_covar,
                 ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
+            # TODO: Replace this statement with PLS
+            # TODO: Simply pass inverse approximation to the prediction strategy at initialization
+            # TODO: make sure we can also pass approximate mean for caching
 
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(
                 *batch_shape, *test_shape
             ).contiguous()
             return full_output.__class__(predictive_mean, predictive_covar)
+
+    @property
+    def linear_solver(self) -> LinearSolver:
+        return self._linear_solver
