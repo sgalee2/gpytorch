@@ -4,6 +4,7 @@ import warnings
 
 from . import deep_gps, exact_prediction_strategies, gplvm, pyro
 from .approximate_gp import ApproximateGP
+from .computation_aware_gp import ComputationAwareGP
 from .exact_gp import ExactGP
 from .gp import GP
 from .model_list import AbstractModelList, IndependentModelList
@@ -17,7 +18,10 @@ VariationalGP = ApproximateGP
 class AbstractVariationalGP(ApproximateGP):
     # Remove after 1.0
     def __init__(self, *args, **kwargs):
-        warnings.warn("AbstractVariationalGP has been renamed to ApproximateGP.", DeprecationWarning)
+        warnings.warn(
+            "AbstractVariationalGP has been renamed to ApproximateGP.",
+            DeprecationWarning,
+        )
         super().__init__(*args, **kwargs)
 
 
@@ -25,13 +29,16 @@ class AbstractVariationalGP(ApproximateGP):
 class PyroVariationalGP(ApproximateGP):
     # Remove after 1.0
     def __init__(self, *args, **kwargs):
-        warnings.warn("PyroVariationalGP has been renamed to PyroGP.", DeprecationWarning)
+        warnings.warn(
+            "PyroVariationalGP has been renamed to PyroGP.", DeprecationWarning
+        )
         super().__init__(*args, **kwargs)
 
 
 __all__ = [
     "AbstractModelList",
     "ApproximateGP",
+    "ComputationAwareGP",
     "ExactGP",
     "GP",
     "IndependentModelList",

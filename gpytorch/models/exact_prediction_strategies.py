@@ -7,6 +7,7 @@ from typing import Optional
 import torch
 from linear_operator import to_dense, to_linear_operator
 from linear_operator.linear_solvers import LinearSolver
+from linear_operator.linear_solvers.linear_solver import LinearSolverState
 from linear_operator.operators import (
     AddedDiagLinearOperator,
     BatchRepeatLinearOperator,
@@ -981,13 +982,26 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         train_labels,
         likelihood,
         linear_solver: LinearSolver,
-        root: Optional[RootLinearOperator] = None,
-        inv_root: Optional[RootLinearOperator] = None,
     ):
-        self._linear_solver = linear_solver
         super().__init__(
-            train_inputs, train_prior_dist, train_labels, likelihood, root, inv_root
+            train_inputs,
+            train_prior_dist,
+            train_labels,
+            likelihood,
+            root=None,
+            inv_root=None,
         )
+
+        # Compute the representer weights
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+
+        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
+
+        with torch.no_grad():  # Ensure gradients are not taken through the solve
+            self._solver_state = linear_solver.solve(
+                train_train_covar.evaluate_kernel(), train_labels_offset
+            )
 
     def get_fantasy_strategy(
         self, inputs, targets, full_inputs, full_targets, full_output, **kwargs
@@ -997,25 +1011,15 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         )
 
     @property
-    def linear_solver(self) -> LinearSolver:
-        """The linear solver used for inference."""
-        return self._linear_solver
+    def solver_state(self) -> LinearSolverState:
+        """State of the linear solver solving for the representer weights."""
+        return self._solver_state
 
     @property
     @cached(name="mean_cache")
     def mean_cache(self) -> torch.Tensor:
         """Compute the representer weights."""
-        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
-        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
-
-        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-
-        # Compute the representer weights with the given linear solver
-        solver_state = self.linear_solver.solve(
-            train_train_covar.evaluate_kernel(), train_labels_offset
-        )
-        mean_cache = solver_state.solution.squeeze(-1)
-        # TODO: Should we really do the solve here and not in computation-aware GPs? We need it in the MLL again.
+        mean_cache = self._solver_state.solution.squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -1024,10 +1028,31 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
 
     @property
     @cached(name="covar_cache")
-    def covar_cache(self) -> RootLinearOperator:
-        raise NotImplementedError
+    def covar_cache(self):
+        return self._exact_predictive_covar_inv_quad_form_cache(
+            self.solver_state.inverse_op.root.tensor, self._last_test_train_covar
+        )
 
     def exact_predictive_covar(
         self, test_test_covar: LinearOperator, test_train_covar: LinearOperator
     ):
-        raise NotImplementedError
+        if settings.skip_posterior_variances.on():
+            return ZeroLinearOperator(*test_test_covar.size())
+
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(
+            self.covar_cache, test_train_covar
+        )
+        if torch.is_tensor(test_test_covar):
+            return to_linear_operator(
+                torch.add(
+                    test_test_covar,
+                    covar_inv_quad_form_root
+                    @ covar_inv_quad_form_root.transpose(-1, -2),
+                    alpha=-1,
+                )
+            )
+        else:
+            return test_test_covar + MatmulLinearOperator(
+                covar_inv_quad_form_root,
+                covar_inv_quad_form_root.transpose(-1, -2).mul(-1),
+            )

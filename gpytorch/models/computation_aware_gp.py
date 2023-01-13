@@ -1,13 +1,15 @@
 import warnings
 
 import torch
+from gpytorch.models.gp import GP
 from linear_operator.linear_solvers import LinearSolver
+from linear_operator.operators.root_linear_operator import RootLinearOperator
 
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..utils.warnings import GPInputWarning
 from .exact_gp import ExactGP
-from .exact_prediction_strategies import prediction_strategy
+from .exact_prediction_strategies import ComputationAwarePredictionStrategy
 
 
 class ComputationAwareGP(ExactGP):
@@ -43,7 +45,7 @@ class ComputationAwareGP(ExactGP):
                     for train_input, input in zip(train_inputs, inputs)
                 ):
                     raise RuntimeError("You must train on the training inputs!")
-            res = super().__call__(*inputs, **kwargs)
+            res = self.forward(*inputs, **kwargs)
             return res
 
         # Prior mode
@@ -53,7 +55,7 @@ class ComputationAwareGP(ExactGP):
             or self.train_targets is None
         ):
             full_inputs = args
-            full_output = super().__call__(*full_inputs, **kwargs)
+            full_output = self.forward(*full_inputs, **kwargs)
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError(
@@ -75,14 +77,15 @@ class ComputationAwareGP(ExactGP):
 
             # Get the terms that only depend on training data
             if self.prediction_strategy is None:
-                train_output = super().__call__(*train_inputs, **kwargs)
+                train_output = self.forward(*train_inputs, **kwargs)
 
                 # Create the prediction strategy for
-                self.prediction_strategy = prediction_strategy(
+                self.prediction_strategy = ComputationAwarePredictionStrategy(
                     train_inputs=train_inputs,
                     train_prior_dist=train_output,
                     train_labels=self.train_targets,
                     likelihood=self.likelihood,
+                    linear_solver=self.linear_solver,
                 )
 
             # Concatenate the input to the training input
@@ -106,11 +109,11 @@ class ComputationAwareGP(ExactGP):
                 full_inputs.append(torch.cat([train_input, input], dim=-2))
 
             # Get the joint distribution for training/test data
-            full_output = super().__call__(*full_inputs, **kwargs)
+            full_output = self.forward(*full_inputs, **kwargs)
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError(
-                        "ExactGP.forward must return a MultivariateNormal."
+                        "ComputationAwareGP.forward must return a MultivariateNormal."
                     )
             full_mean, full_covar = full_output.loc, full_output.lazy_covariance_matrix
 
@@ -123,14 +126,10 @@ class ComputationAwareGP(ExactGP):
             )
 
             # Make the prediction
-            with settings.cg_tolerance(settings.eval_cg_tolerance.value()):
-                (
-                    predictive_mean,
-                    predictive_covar,
-                ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
-            # TODO: Replace this statement with PLS
-            # TODO: Simply pass inverse approximation to the prediction strategy at initialization
-            # TODO: make sure we can also pass approximate mean for caching
+            (
+                predictive_mean,
+                predictive_covar,
+            ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
 
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(

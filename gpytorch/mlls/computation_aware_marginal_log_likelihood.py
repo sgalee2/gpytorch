@@ -8,7 +8,6 @@ from gpytorch import settings
 from linear_operator import to_linear_operator
 
 from ..likelihoods import GaussianLikelihood, _GaussianLikelihoodBase
-from ..models import ExactGP
 from .marginal_log_likelihood import MarginalLogLikelihood
 
 
@@ -25,10 +24,9 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         # TODO
     """
 
-    def __init__(self, likelihood: GaussianLikelihood, model: ExactGP, linear_solver):
+    def __init__(self, likelihood: GaussianLikelihood, model: "ComputationAwareGP"):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference.")
-        self.linear_solver = linear_solver  # TODO: pass linear solver to `ComputationAwareGP` not to likelihood
         super().__init__(likelihood, model)
 
     def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
@@ -39,13 +37,12 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
             ).covariance_matrix
 
         with torch.no_grad():
-            solver_state = self.linear_solver.solve(
+            solver_state = self.model.linear_solver.solve(
                 to_linear_operator(Khat), target  # TODO: do not omit prior mean here
             )
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op
         logdet_estimate = solver_state.logdet
-        # TODO: do not do another linear solve in here, rather pass results from solve stored in model, after model(train_x) call
 
         # Implementing this via an autograd function is the recommended pattern by
         # PyTorch for extending nn.Module with a custom backward pass.
