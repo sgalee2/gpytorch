@@ -3,7 +3,6 @@ import warnings
 import torch
 from gpytorch.models.gp import GP
 from linear_operator.linear_solvers import LinearSolver
-from linear_operator.operators.root_linear_operator import RootLinearOperator
 
 from .. import settings
 from ..distributions import MultivariateNormal
@@ -139,4 +138,9 @@ class ComputationAwareGP(ExactGP):
 
     @property
     def linear_solver(self) -> LinearSolver:
+        """Linear solver used to compute the posterior."""
         return self._linear_solver
+
+    @linear_solver.setter
+    def linear_solver(self, linear_solver: LinearSolver) -> None:
+        self._linear_solver = linear_solver
