@@ -5,7 +5,7 @@ import math
 
 import torch
 from gpytorch import settings
-from linear_operator import to_linear_operator
+from linear_operator import operators, to_linear_operator
 
 from ..likelihoods import GaussianLikelihood, _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -84,14 +84,18 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
             fit_term = ctx.repr_weights.T @ Khat @ ctx.repr_weights
 
             # Computes d/dtheta (\sum_{j=1}^i 1/eta_j d_j' Khat d_j) = \sum_{j=1}^i 1/eta_j d_j' dK/dtheta d_j
-            logdet_term = torch.sum(
-                torch.einsum(
-                    "ni,nn,ni->i",
-                    ctx.prec_approx.root.to_dense(),
-                    Khat,
-                    ctx.prec_approx.root.to_dense(),
+            if isinstance(ctx.prec_approx, operators.ZeroLinearOperator):
+                logdet_term = torch.as_tensor(0.0)
+            else:
+                logdet_term = torch.sum(
+                    torch.einsum(
+                        "ni,nn,ni->i",
+                        ctx.prec_approx.root.to_dense(),
+                        Khat,
+                        ctx.prec_approx.root.to_dense(),
+                    )
                 )
-            )
+
             return 0.5 * (fit_term - logdet_term)
 
         return (

@@ -996,7 +996,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
-        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
+        train_labels_offset = self.train_labels - train_mean
 
         with torch.no_grad():  # Ensure gradients are not taken through the solve
             self._solver_state = linear_solver.solve(
@@ -1007,7 +1007,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         self, inputs, targets, full_inputs, full_targets, full_output, **kwargs
     ):
         raise NotImplementedError(
-            "Fantasy observation updates not yet supported for computation-aware Gaussian processes."
+            "Fantasy observation updates not (yet) supported for computation-aware Gaussian processes."
         )
 
     @property
