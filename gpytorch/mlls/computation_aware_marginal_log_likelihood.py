@@ -81,7 +81,7 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         def _pseudo_lml(Khat):
 
             # Computes d/dtheta (v' Khat v) = v' dK/dtheta v
-            fit_term = ctx.repr_weights.T @ Khat @ ctx.repr_weights
+            fit_term = torch.inner(ctx.repr_weights, Khat @ ctx.repr_weights)
 
             # Computes d/dtheta (\sum_{j=1}^i 1/eta_j d_j' Khat d_j) = \sum_{j=1}^i 1/eta_j d_j' dK/dtheta d_j
             if isinstance(ctx.prec_approx, operators.ZeroLinearOperator):
