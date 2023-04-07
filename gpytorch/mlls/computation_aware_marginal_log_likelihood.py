@@ -38,7 +38,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
 
         with torch.no_grad():
             solver_state = self.model.linear_solver.solve(
-                to_linear_operator(Khat), target  # TODO: do not omit prior mean here
+                to_linear_operator(Khat), target
             )
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op
