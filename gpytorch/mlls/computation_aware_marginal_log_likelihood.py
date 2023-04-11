@@ -37,8 +37,8 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
             solver_state = self.model.linear_solver.solve(
                 to_linear_operator(Khat), target
             )
-            # if self.model.prediction_strategy is None:
-            #     self.model.solver_state = solver_state  # TODO: this feels hacky and adds dependence between model and MLL.
+            if self.model.prediction_strategy is None:
+                self.model._solver_state = solver_state  # TODO: this feels hacky and adds dependence between model and MLL.
 
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op

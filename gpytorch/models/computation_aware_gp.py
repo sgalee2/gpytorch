@@ -25,6 +25,7 @@ class ComputationAwareGP(ExactGP):
         self, train_inputs, train_targets, likelihood, linear_solver: LinearSolver
     ):
         self._linear_solver = linear_solver
+        self._solver_state = None
         super().__init__(train_inputs, train_targets, likelihood)
 
     def __call__(self, *args, **kwargs):
@@ -85,6 +86,7 @@ class ComputationAwareGP(ExactGP):
                     train_labels=self.train_targets,
                     likelihood=self.likelihood,
                     linear_solver=self.linear_solver,
+                    solver_state=self._solver_state,
                 )
 
             # Concatenate the input to the training input

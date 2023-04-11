@@ -982,6 +982,7 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         train_labels,
         likelihood,
         linear_solver: LinearSolver,
+        solver_state,
     ):
         super().__init__(
             train_inputs,
@@ -992,16 +993,19 @@ class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
             inv_root=None,
         )
 
-        # Compute the representer weights
-        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
-        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+        if solver_state is None:
+            # Compute the representer weights
+            mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+            train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
-        train_labels_offset = self.train_labels - train_mean
+            train_labels_offset = self.train_labels - train_mean
 
-        with torch.no_grad():  # Ensure gradients are not taken through the solve
-            self._solver_state = linear_solver.solve(
-                train_train_covar.evaluate_kernel(), train_labels_offset
-            )
+            with torch.no_grad():  # Ensure gradients are not taken through the solve
+                self._solver_state = linear_solver.solve(
+                    train_train_covar.evaluate_kernel(), train_labels_offset
+                )
+        else:
+            self._solver_state = solver_state
 
     def get_fantasy_strategy(
         self, inputs, targets, full_inputs, full_targets, full_output, **kwargs
