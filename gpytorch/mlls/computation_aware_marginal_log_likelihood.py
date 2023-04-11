@@ -31,15 +31,15 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
 
     def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
 
-        with settings.prior_mode(True):
-            Khat = self.likelihood(
-                self.model(*self.model.train_inputs)
-            ).covariance_matrix
+        Khat = self.likelihood(output).covariance_matrix
 
         with torch.no_grad():
             solver_state = self.model.linear_solver.solve(
                 to_linear_operator(Khat), target
             )
+            # if self.model.prediction_strategy is None:
+            #     self.model.solver_state = solver_state  # TODO: this feels hacky and adds dependence between model and MLL.
+
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op
         logdet_estimate = solver_state.logdet
