@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+import math
+
+from linear_operator.linear_solvers import CGGpytorch, LinearSolver
+
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .marginal_log_likelihood import MarginalLogLikelihood
@@ -67,3 +71,56 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Scale by the amount of data we have
         num_data = function_dist.event_shape.numel()
         return res.div_(num_data)
+
+
+class SLQMarginalLogLikelihood(ExactMarginalLogLikelihood):
+    def __init__(self, likelihood, model, linear_solver: LinearSolver = CGGpytorch()):
+
+        self.linear_solver = linear_solver
+
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
+            raise RuntimeError("Likelihood must be Gaussian for exact inference")
+        super().__init__(likelihood, model)
+
+    def forward(self, function_dist, target, *params):
+        if not isinstance(function_dist, MultivariateNormal):
+            raise RuntimeError("CGMarginalLogLikelihood can only operate on Gaussian random variables")
+
+        # Get the log prob of the marginal distribution
+        output = self.likelihood(function_dist, *params)
+        res = _log_prob_via_slq(output, target, linear_solver=self.linear_solver)
+        res = self._add_other_terms(res, params)
+
+        # Scale by the amount of data we have
+        num_data = function_dist.event_shape.numel()
+        return res.div_(num_data)
+
+
+def _log_prob_via_slq(self, value, linear_solver):
+
+    if self._validate_args:
+        self._validate_sample(value)
+
+    mean, covar = self.loc, self.lazy_covariance_matrix
+    diff = value - mean
+
+    # Repeat the covar to match the batch shape of diff
+    if diff.shape[:-1] != covar.batch_shape:
+        if len(diff.shape[:-1]) < len(covar.batch_shape):
+            diff = diff.expand(covar.shape[:-1])
+        else:
+            padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
+            covar = covar.repeat(
+                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
+                1,
+                1,
+            )
+
+    # Get log determininant and first part of quadratic form
+    covar = covar.evaluate_kernel()
+    covar.linear_solver = linear_solver  # Set linear solver for inv_quad_logdet computation
+
+    inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
+
+    res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
+    return res

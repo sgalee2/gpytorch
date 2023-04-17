@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 
 import torch
-from gpytorch import settings
 from linear_operator import operators, to_linear_operator
 
 from ..likelihoods import GaussianLikelihood, _GaussianLikelihoodBase
@@ -34,11 +33,11 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         Khat = self.likelihood(output).covariance_matrix
 
         with torch.no_grad():
-            solver_state = self.model.linear_solver.solve(
-                to_linear_operator(Khat), target
-            )
+            solver_state = self.model.linear_solver.solve(to_linear_operator(Khat), target)
             if self.model.prediction_strategy is None:
-                self.model._solver_state = solver_state  # TODO: this feels hacky and adds dependence between model and MLL.
+                self.model._solver_state = (
+                    solver_state  # TODO: this feels hacky and adds dependence between model and MLL.
+                )
 
         repr_weights = solver_state.solution
         Khat_inv_approx = solver_state.inverse_op
@@ -64,11 +63,7 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
         Khat_inv_approx: torch.Tensor,
         logdet_estimate: torch.Tensor,
     ):
-        lml = -0.5 * (
-            torch.inner(y, repr_weights)
-            + logdet_estimate
-            + Khat.shape[-1] * math.log(2 * math.pi)
-        )
+        lml = -0.5 * (torch.inner(y, repr_weights) + logdet_estimate + Khat.shape[-1] * math.log(2 * math.pi))
 
         ctx.repr_weights = repr_weights
         ctx.prec_approx = Khat_inv_approx

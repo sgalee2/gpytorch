@@ -3,12 +3,10 @@
 import warnings
 
 from .added_loss_term import AddedLossTerm
-from .computation_aware_marginal_log_likelihood import (
-    ComputationAwareMarginalLogLikelihood,
-)
+from .computation_aware_marginal_log_likelihood import ComputationAwareMarginalLogLikelihood
 from .deep_approximate_mll import DeepApproximateMLL
 from .deep_predictive_log_likelihood import DeepPredictiveLogLikelihood
-from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood, SLQMarginalLogLikelihood
 from .gamma_robust_variational_elbo import GammaRobustVariationalELBO
 from .inducing_point_kernel_added_loss_term import InducingPointKernelAddedLossTerm
 from .kl_gaussian_added_loss_term import KLGaussianAddedLossTerm
