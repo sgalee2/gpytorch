@@ -74,9 +74,17 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
 
 class SLQMarginalLogLikelihood(ExactMarginalLogLikelihood):
-    def __init__(self, likelihood, model, linear_solver: LinearSolver = CGGpytorch()):
+    """Marginal log-likelihood computed via stochastic Lanczos quadrature and CG."""
 
-        self.linear_solver = linear_solver
+    def __init__(self, likelihood, model, linear_solver: LinearSolver = None):
+
+        if linear_solver is not None:
+            self.linear_solver = linear_solver
+        else:
+            try:
+                self.linear_solver = model.linear_solver
+            except AttributeError:
+                self.linear_solver = CGGpytorch()
 
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")

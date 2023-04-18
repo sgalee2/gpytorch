@@ -2,11 +2,10 @@
 
 import functools
 import string
-from typing import Optional
 
 import torch
 from linear_operator import to_dense, to_linear_operator
-from linear_operator.linear_solvers import LinearSolver
+from linear_operator.linear_solvers import CGGpytorch, LinearSolver
 from linear_operator.linear_solvers.linear_solver import LinearSolverState
 from linear_operator.operators import (
     AddedDiagLinearOperator,
@@ -340,12 +339,6 @@ class DefaultPredictionStrategy(object):
 
             test_train_covar = to_dense(test_train_covar)
             train_test_covar = test_train_covar.transpose(-1, -2)
-
-            from linear_operator.linear_solvers import CGGpytorch
-
-            train_train_covar.linear_solver = (
-                CGGpytorch()
-            )  # TODO: remove this again and add it to a CGPredictionStrategy or so
 
             covar_correction_rhs = train_train_covar.solve(train_test_covar)
             # For efficiency
@@ -859,6 +852,113 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
 
         res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
         return res
+
+
+class CGPredictionStrategy(DefaultPredictionStrategy):
+    """Prediction strategy using the method of conjugate gradients."""
+
+    def __init__(
+        self,
+        train_inputs,
+        train_prior_dist,
+        train_labels,
+        likelihood,
+        root=None,
+        inv_root=None,
+        linear_solver=CGGpytorch(),
+    ):
+        self.linear_solver = linear_solver
+        super().__init__(
+            train_inputs=train_inputs,
+            train_prior_dist=train_prior_dist,
+            train_labels=train_labels,
+            likelihood=likelihood,
+            root=root,
+            inv_root=inv_root,
+        )
+
+    @property
+    @cached(name="mean_cache")
+    def mean_cache(self):
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
+
+        # Solve with CG
+        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
+        mean_cache = self.linear_solver.solve(train_train_covar.evaluate_kernel(), train_labels_offset.squeeze(-1))
+
+        if settings.detach_test_caches.on():
+            mean_cache = mean_cache.detach()
+
+        if mean_cache.grad_fn is not None:
+            wrapper = functools.partial(clear_cache_hook, self)
+            functools.update_wrapper(wrapper, clear_cache_hook)
+            mean_cache.grad_fn.register_hook(wrapper)
+
+        return mean_cache
+
+    def exact_predictive_covar(
+        self, test_test_covar: LinearOperator, test_train_covar: LinearOperator
+    ) -> LinearOperator:
+        """
+        Computes the posterior predictive covariance of a GP using CG.
+        """
+        # if settings.fast_pred_var.on():
+        self._last_test_train_covar = test_train_covar
+
+        # if settings.skip_posterior_variances.on():
+        #     return ZeroLinearOperator(*test_test_covar.size())
+
+        # if settings.fast_pred_var.off():
+        #     dist = self.train_prior_dist.__class__(
+        #         torch.zeros_like(self.train_prior_dist.mean),
+        #         self.train_prior_dist.lazy_covariance_matrix,
+        #     )
+        #     if settings.detach_test_caches.on():
+        #         train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix.detach()
+        #     else:
+        #         train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
+
+        #     test_train_covar = to_dense(test_train_covar)
+        #     train_test_covar = test_train_covar.transpose(-1, -2)
+
+        #     # Set linear solver to CG
+        #     train_train_covar.linear_solver = self.linear_solver
+        #     covar_correction_rhs = train_train_covar.solve(train_test_covar)
+        #     # For efficiency
+        #     if torch.is_tensor(test_test_covar):
+        #         # We can use addmm in the 2d case
+        #         if test_test_covar.dim() == 2:
+        #             return to_linear_operator(
+        #                 torch.addmm(
+        #                     test_test_covar,
+        #                     test_train_covar,
+        #                     covar_correction_rhs,
+        #                     beta=1,
+        #                     alpha=-1,
+        #                 )
+        #             )
+        #         else:
+        #             return to_linear_operator(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
+        #     # In other cases - we'll use the standard infrastructure
+        #     else:
+        #         return test_test_covar + MatmulLinearOperator(test_train_covar, covar_correction_rhs.mul(-1))
+
+        precomputed_cache = self.covar_cache
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
+        if torch.is_tensor(test_test_covar):
+            return to_linear_operator(
+                torch.add(
+                    test_test_covar,
+                    covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2),
+                    alpha=-1,
+                )
+            )
+        else:
+            return test_test_covar + MatmulLinearOperator(
+                covar_inv_quad_form_root,
+                covar_inv_quad_form_root.transpose(-1, -2).mul(-1),
+            )
 
 
 class ComputationAwarePredictionStrategy(DefaultPredictionStrategy):
