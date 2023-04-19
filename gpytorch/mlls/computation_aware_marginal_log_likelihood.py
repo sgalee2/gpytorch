@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-
+from typing import Union
 import torch
 from linear_operator import operators, to_linear_operator
 
@@ -30,8 +30,9 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
 
     def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
 
-        # Khat = self.likelihood(output).covariance_matrix # TODO: creates n_train x n_train matrix
-        Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
+        Khat = self.likelihood(output).covariance_matrix  # TODO: creates n_train x n_train matrix, does not cause error
+        # Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel() # TODO: causes error (detached from graph?)
+        # Khat = to_linear_operator(self.likelihood(output).covariance_matrix)  # TODO: also causes error
 
         with torch.no_grad():
             solver_state = self.model.linear_solver.solve(Khat, target)
@@ -56,7 +57,7 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        Khat: torch.Tensor,
+        Khat: Union[torch.Tensor, operators.LinearOperator],
         y: torch.Tensor,
         repr_weights: torch.Tensor,
         Khat_inv_approx: torch.Tensor,
