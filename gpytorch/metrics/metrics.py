@@ -33,6 +33,13 @@ def mean_squared_error(
     return res
 
 
+def standardized_mean_squared_error(
+    pred_dist: MultivariateNormal,
+    test_y: torch.Tensor,
+):
+    return mean_squared_error(pred_dist, test_y, squared=True) / test_y.var()
+
+
 def negative_log_predictive_density(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
@@ -41,12 +48,12 @@ def negative_log_predictive_density(
     return -pred_dist.log_prob(test_y) / test_y.shape[combine_dim]
 
 
-def mean_standardized_log_loss(
+def mean_log_loss(
     pred_dist: MultivariateNormal,
     test_y: torch.Tensor,
 ):
     """
-    Mean Standardized Log Loss.
+    Mean Negative Log Loss.
     Reference: Page No. 23,
     Gaussian Processes for Machine Learning,
     Carl Edward Rasmussen and Christopher K. I. Williams,
@@ -56,6 +63,32 @@ def mean_standardized_log_loss(
     f_mean = pred_dist.mean
     f_var = pred_dist.variance
     return (0.5 * torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=combine_dim)
+
+
+def mean_standardized_log_loss(
+    pred_dist: MultivariateNormal,
+    test_y: torch.Tensor,
+    train_y: torch.Tensor,
+):
+    """
+    Mean Standardized Log Loss.
+    Reference: Page No. 23,
+    Gaussian Processes for Machine Learning,
+    Carl Edward Rasmussen and Christopher K. I. Williams,
+    The MIT Press, 2006. ISBN 0-262-18253-X
+    """
+    combine_dim = -2 if isinstance(pred_dist, MultitaskMultivariateNormal) else -1
+
+    data_mean = train_y.mean(dim=combine_dim)
+    data_var = train_y.var()
+
+    f_mean = pred_dist.mean
+    f_var = pred_dist.variance
+    loss_model = (0.5 * torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=combine_dim)
+    loss_trivial_model = (0.5 * torch.log(2 * pi * data_var) + torch.square(test_y - data_mean) / (2 * data_var)).mean(
+        dim=combine_dim
+    )
+    return loss_model - loss_trivial_model
 
 
 def quantile_coverage_error(

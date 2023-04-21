@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from typing import Union
+
 import torch
 from linear_operator import operators, to_linear_operator
 
@@ -35,7 +36,7 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
         # Khat = to_linear_operator(self.likelihood(output).covariance_matrix)  # TODO: also causes error
 
         with torch.no_grad():
-            solver_state = self.model.linear_solver.solve(Khat, target)
+            solver_state = self.model.linear_solver.solve(to_linear_operator(Khat), target)
             if self.model.prediction_strategy is None:
                 self.model._solver_state = solver_state
 
