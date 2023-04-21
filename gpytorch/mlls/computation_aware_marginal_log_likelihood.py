@@ -31,7 +31,6 @@ class ComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
 
     def forward(self, output: torch.Tensor, target: torch.Tensor, **kwargs):
 
-        # Khat = self.likelihood(output).covariance_matrix  # TODO: creates n_train x n_train matrix, does not cause error
         Khat = self.likelihood(output).lazy_covariance_matrix.evaluate_kernel()
 
         with torch.no_grad():
@@ -86,11 +85,11 @@ class _ComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Function):
 
         # Create tensor for bilinear forms
         # Computes d/dtheta (v' Khat v) = v' dK/dtheta v
-        bilinear_form_tensor_list_left = [ctx.repr_weights.reshape(-1, 1)]
+        bilinear_form_tensor_list_left = [-ctx.repr_weights.reshape(-1, 1)]
         bilinear_form_tensor_list_right = [ctx.repr_weights.reshape(-1, 1)]
         if not isinstance(ctx.prec_approx, operators.ZeroLinearOperator):
             # Computes d/dtheta (\sum_{j=1}^i 1/eta_j d_j' Khat d_j) = \sum_{j=1}^i 1/eta_j d_j' dK/dtheta d_j
-            bilinear_form_tensor_list_left.append(-ctx.prec_approx.root.to_dense())
+            bilinear_form_tensor_list_left.append(ctx.prec_approx.root.to_dense())
             bilinear_form_tensor_list_right.append(ctx.prec_approx.root.to_dense())
 
         bilinear_form_tensors_left = 0.5 * torch.cat(bilinear_form_tensor_list_left, -1)
