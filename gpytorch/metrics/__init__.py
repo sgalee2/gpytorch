@@ -1,6 +1,5 @@
 from .metrics import (
     mean_absolute_error,
-    mean_log_loss,
     mean_squared_error,
     mean_standardized_log_loss,
     negative_log_predictive_density,
@@ -10,7 +9,6 @@ from .metrics import (
 
 __all__ = [
     "mean_absolute_error",
-    "mean_log_loss",
     "mean_squared_error",
     "standardized_mean_squared_error",
     "mean_standardized_log_loss",
