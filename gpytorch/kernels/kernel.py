@@ -34,7 +34,9 @@ def sq_dist(x1, x2, x1_eq_x2=False):
     if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
         x2, x2_norm, x2_pad = x1, x1_norm, x1_pad
     else:
-        x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
+        x2 = (
+            x2 - adjustment
+        )  # x1 and x2 should be identical in all dims except -2 at this point
         x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
         x2_pad = torch.ones_like(x2_norm)
     x1_ = torch.cat([-2.0 * x1, x1_norm, x1_pad], dim=-1)
@@ -191,13 +193,21 @@ class Kernel(Module):
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
                 name="raw_lengthscale",
-                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)),
+                parameter=torch.nn.Parameter(
+                    torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)
+                ),
             )
             if lengthscale_prior is not None:
                 if not isinstance(lengthscale_prior, Prior):
-                    raise TypeError("Expected gpytorch.priors.Prior but got " + type(lengthscale_prior).__name__)
+                    raise TypeError(
+                        "Expected gpytorch.priors.Prior but got "
+                        + type(lengthscale_prior).__name__
+                    )
                 self.register_prior(
-                    "lengthscale_prior", lengthscale_prior, self._lengthscale_param, self._lengthscale_closure
+                    "lengthscale_prior",
+                    lengthscale_prior,
+                    self._lengthscale_param,
+                    self._lengthscale_closure,
                 )
 
             self.register_constraint("raw_lengthscale", lengthscale_constraint)
@@ -222,15 +232,22 @@ class Kernel(Module):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_lengthscale)
 
-        self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
+        self.initialize(
+            raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value)
+        )
 
     @abstractmethod
     def forward(
-        self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self,
+        x1: Tensor,
+        x2: Tensor,
+        diag: bool = False,
+        last_dim_is_batch: bool = False,
+        **params,
     ) -> Union[Tensor, LinearOperator]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
-        This method should be imlemented by all Kernel subclasses.
+        This method should be implemented by all Kernel subclasses.
 
         :param x1: First set of data (... x N x D).
         :param x2: Second set of data (... x M x D).
@@ -253,7 +270,9 @@ class Kernel(Module):
     def batch_shape(self) -> torch.Size:
         kernels = list(self.sub_kernels())
         if len(kernels):
-            return torch.broadcast_shapes(self._batch_shape, *[k.batch_shape for k in kernels])
+            return torch.broadcast_shapes(
+                self._batch_shape, *[k.batch_shape for k in kernels]
+            )
         else:
             return self._batch_shape
 
@@ -267,7 +286,9 @@ class Kernel(Module):
             return self.lengthscale.device
         devices = {param.device for param in self.parameters()}
         if len(devices) > 1:
-            raise RuntimeError(f"The kernel's parameters are on multiple devices: {devices}.")
+            raise RuntimeError(
+                f"The kernel's parameters are on multiple devices: {devices}."
+            )
         elif devices:
             return devices.pop()
         return None
@@ -278,7 +299,9 @@ class Kernel(Module):
             return self.lengthscale.dtype
         dtypes = {param.dtype for param in self.parameters()}
         if len(dtypes) > 1:
-            raise RuntimeError(f"The kernel's parameters have multiple dtypes: {dtypes}.")
+            raise RuntimeError(
+                f"The kernel's parameters have multiple dtypes: {dtypes}."
+            )
         elif dtypes:
             return dtypes.pop()
         return torch.get_default_dtype()
@@ -298,7 +321,9 @@ class Kernel(Module):
     def is_stationary(self) -> bool:
         return self.has_lengthscale
 
-    def local_load_samples(self, samples_dict: Dict[str, Tensor], memo: set, prefix: str):
+    def local_load_samples(
+        self, samples_dict: Dict[str, Tensor], memo: set, prefix: str
+    ):
         num_samples = next(iter(samples_dict.values())).size(0)
         self.batch_shape = torch.Size([num_samples]) + self.batch_shape
         super().local_load_samples(samples_dict, memo, prefix)
@@ -342,7 +367,9 @@ class Kernel(Module):
         if diag:
             # Special case the diagonal because we can return all zeros most of the time.
             if x1_eq_x2:
-                return torch.zeros(*x1.shape[:-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
+                return torch.zeros(
+                    *x1.shape[:-2], x1.shape[-2], dtype=x1.dtype, device=x1.device
+                )
             else:
                 res = torch.linalg.norm(x1 - x2, dim=-1)  # 2-norm by default
                 return res.pow(2) if square_dist else res
@@ -398,7 +425,9 @@ class Kernel(Module):
 
         # Recurse, if necessary
         for sub_module_name, sub_module in self.named_sub_kernels():
-            new_kernel.__setattr__(sub_module_name, sub_module.expand_batch(new_batch_shape))
+            new_kernel.__setattr__(
+                sub_module_name, sub_module.expand_batch(new_batch_shape)
+            )
 
         return new_kernel
 
@@ -451,7 +480,12 @@ class Kernel(Module):
             yield kernel
 
     def __call__(
-        self, x1: Tensor, x2: Optional[Tensor] = None, diag: bool = False, last_dim_is_batch: bool = False, **params
+        self,
+        x1: Tensor,
+        x2: Optional[Tensor] = None,
+        diag: bool = False,
+        last_dim_is_batch: bool = False,
+        **params,
     ) -> Union[LazyEvaluatedKernelTensor, LinearOperator, Tensor]:
         r"""
         Computes the covariance between :math:`\mathbf x_1` and :math:`\mathbf x_2`.
@@ -494,7 +528,9 @@ class Kernel(Module):
             if x2_.ndimension() == 1:
                 x2_ = x2_.unsqueeze(1)
             if not x1_.size(-1) == x2_.size(-1):
-                raise RuntimeError("x1_ and x2_ must have the same number of dimensions!")
+                raise RuntimeError(
+                    "x1_ and x2_ must have the same number of dimensions!"
+                )
 
         if x2_ is None:
             x2_ = x1_
@@ -504,24 +540,34 @@ class Kernel(Module):
             if self.ard_num_dims is not None and self.ard_num_dims != x1_.size(-1):
                 raise RuntimeError(
                     "Expected the input to have {} dimensionality "
-                    "(based on the ard_num_dims argument). Got {}.".format(self.ard_num_dims, x1_.size(-1))
+                    "(based on the ard_num_dims argument). Got {}.".format(
+                        self.ard_num_dims, x1_.size(-1)
+                    )
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
+            res = super(Kernel, self).__call__(
+                x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params
+            )
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
-                if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
+                if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size(
+                    (x1_.size(-2), x2_.size(-2))
+                ):
                     res = res.diagonal(dim1=-1, dim2=-2)
             return res
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
+                res = LazyEvaluatedKernelTensor(
+                    x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params
+                )
             else:
                 res = to_linear_operator(
-                    super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+                    super(Kernel, self).__call__(
+                        x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params
+                    )
                 )
             return res
 
@@ -601,7 +647,9 @@ class AdditiveKernel(Kernel):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
+    def forward(
+        self, x1: Tensor, x2: Tensor, diag: bool = False, **params
+    ) -> Union[Tensor, LinearOperator]:
         res = ZeroLinearOperator() if not diag else 0
         for kern in self.kernels:
             next_term = kern(x1, x2, diag=diag, **params)
@@ -643,7 +691,9 @@ class ProductKernel(Kernel):
         super(ProductKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, **params) -> Union[Tensor, LinearOperator]:
+    def forward(
+        self, x1: Tensor, x2: Tensor, diag: bool = False, **params
+    ) -> Union[Tensor, LinearOperator]:
         x1_eq_x2 = torch.equal(x1, x2)
 
         if not x1_eq_x2:

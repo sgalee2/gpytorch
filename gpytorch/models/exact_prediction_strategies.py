@@ -1186,31 +1186,12 @@ class SparseComputationAwarePredictionStrategy(DefaultPredictionStrategy):
     @cached(name="mean_cache")
     def mean_cache(self) -> torch.Tensor:
         """Compute the representer weights."""
-        mean_cache = self.solver_state.cache["compressed_solution"].squeeze(-1)
+        mean_cache = self._solver_state.solution.squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
 
         return mean_cache
-
-    def exact_predictive_mean(
-        self, test_mean: Tensor, test_train_covar: LinearOperator
-    ) -> Tensor:
-        """
-        Computes the posterior predictive covariance of a GP
-
-        :param Tensor test_mean: The test prior mean
-        :param ~linear_operator.operators.LinearOperator test_train_covar:
-            Covariance matrix between test and train inputs
-        :return: The predictive posterior mean of the test points
-        """
-        res = (
-            (test_train_covar @ self.solver_state.cache["prev_actions"])
-            @ self.mean_cache.unsqueeze(-1)
-        ).squeeze(-1)
-        res = res + test_mean
-
-        return res
 
     @property
     @cached(name="covar_cache")
@@ -1229,14 +1210,28 @@ class SparseComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         Returns
             :obj:`~linear_operator.operators.LinearOperator`: :math:`K_{X^{*}X} S L^{-T}`
         """
-        covar_test_train_actions = (
-            test_train_covar @ self.solver_state.cache["prev_actions"]
-        )
-        return torch.cholesky_solve(
-            covar_test_train_actions.mT,
+        # Compute k(X_*, X)S
+        covar_test_train_actions = test_train_covar @ self.solver_state.cache["actions"]
+
+        # Compute a triangular solve to obtain k(X_*, X)S L^{-T}
+        return torch.linalg.solve_triangular(
             self.solver_state.cache["cholfac_gram"],
+            covar_test_train_actions.mT,
             upper=False,
+            left=True,
         ).mT
+
+        # TODO: try recomputing cholesky factorization for stability
+        # => Seems to improve stability a little bit.
+        # actions_linop_actions = self.solver_state.cache["actions"].mT @ self.solver_state.problem.A @ self.solver_state.cache["actions"]
+
+        # cholfac_gram = torch.linalg.cholesky(actions_linop_actions, upper=False)
+        # return torch.linalg.solve_triangular(
+        #     cholfac_gram,
+        #     covar_test_train_actions.mT,
+        #     upper=False,
+        #     left=True,
+        # ).mT
 
     def exact_predictive_covar(
         self, test_test_covar: LinearOperator, test_train_covar: LinearOperator

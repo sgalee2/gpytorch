@@ -126,7 +126,7 @@ class SparseComputationAwareMarginalLogLikelihood(MarginalLogLikelihood):
 
         compressed_repr_weights = solver_state.cache["compressed_solution"]
         repr_weights = solver_state.solution
-        actions = solver_state.cache["prev_actions"]
+        actions = solver_state.cache["actions"]
         cholfac_gram = solver_state.cache["cholfac_gram"]
         logdet_estimate = solver_state.logdet
 
@@ -219,7 +219,7 @@ def _custom_derivative(
         complexity_term = torch.trace(
             torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False)
         )
-        return 0.5 * (quadratic_loss_term - complexity_term)
+        return -0.5 * (quadratic_loss_term - complexity_term)
 
     actual_grads = deque(
         torch.autograd.functional.vjp(_lml_derivative, Khat.representation())[1]
