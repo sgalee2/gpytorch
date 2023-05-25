@@ -210,7 +210,7 @@ def _custom_derivative(
     if not len(args_with_grads):
         return tuple(None for _ in args)
 
-    def _lml_derivative(*representation):
+    def _neglml_derivative(*representation):
         lin_op_copy = Khat.representation_tree()(*representation)
         gram_SKS = actions.mT @ (lin_op_copy._matmul(actions))
         quadratic_loss_term = torch.inner(
@@ -222,7 +222,7 @@ def _custom_derivative(
         return -0.5 * (quadratic_loss_term - complexity_term)
 
     actual_grads = deque(
-        torch.autograd.functional.vjp(_lml_derivative, Khat.representation())[1]
+        torch.autograd.functional.vjp(_neglml_derivative, Khat.representation())[1]
     )
 
     # Now make sure that the object we return has one entry for every item in args

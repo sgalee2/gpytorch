@@ -1222,7 +1222,6 @@ class SparseComputationAwarePredictionStrategy(DefaultPredictionStrategy):
         ).mT
 
         # TODO: try recomputing cholesky factorization for stability
-        # => Seems to improve stability a little bit.
         # actions_linop_actions = self.solver_state.cache["actions"].mT @ self.solver_state.problem.A @ self.solver_state.cache["actions"]
 
         # cholfac_gram = torch.linalg.cholesky(actions_linop_actions, upper=False)
