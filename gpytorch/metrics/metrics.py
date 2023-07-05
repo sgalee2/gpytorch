@@ -1,6 +1,7 @@
 from math import pi
 from typing import Optional
 
+import scipy
 import torch
 
 from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
@@ -150,4 +151,64 @@ def kl_divergence(q: MultivariateNormal, p: MultivariateNormal):
 
     return (
         0.5 * (trace_term - q.event_shape[0] + mahanalobis_distance_term) + logdet_term
+    )
+
+
+def _symsqrt(matrix):
+    """Compute the square root of a positive definite matrix."""
+
+    # SVD
+    _, s, v = matrix.svd()
+
+    # Truncate small components
+    above_cutoff = s > s.max(-1, True).values * s.size(-1) * torch.finfo(s.dtype).eps
+    components = above_cutoff.sum(-1)
+    common = components.max()
+    unbalanced = common != components.min()
+    if common < s.size(-1):
+        s = s[..., :common]
+        v = v[..., :common]
+        if unbalanced:
+            above_cutoff = above_cutoff[..., :common]
+    if unbalanced:
+        s = s.where(above_cutoff, torch.zeros((), device=s.device, dtype=s.dtype))
+    return (v * s.sqrt().unsqueeze(-2)) @ v.transpose(-2, -1)
+
+
+def wasserstein(q: MultivariateNormal, p: MultivariateNormal, order=2):
+    """Wasserstein distance or earth mover's distance.
+
+    :param q: First distributional argument. Can be a stack of multivariate normals.
+    :param p: Second distributional argument. Can be a stack of multivariate normals.
+    """
+
+    # Error checking
+    if not q.event_shape == p.event_shape:
+        raise ValueError(
+            "Multivariate normal distributions must have same event shape."
+        )
+    if order != 2:
+        raise NotImplementedError("Only order p=2 is supported currently.")
+
+    # Compute Cholesky necessary decompositions
+    q_cov_sqrt = _symsqrt(q.covariance_matrix)
+    # p_cov_chol = torch.linalg.cholesky(p.covariance_matrix, upper=False)
+    if p.batch_shape == torch.Size([]):
+        mixed_cov_matrix = q_cov_sqrt @ p.covariance_matrix @ q_cov_sqrt
+        mixed_cov_sqrt = _symsqrt(mixed_cov_matrix)
+        mixed_trace_term = torch.trace(mixed_cov_sqrt)
+    else:
+        mixed_cov_matrix = torch.bmm(
+            q_cov_sqrt, torch.bmm(p.covariance_matrix, q_cov_sqrt)
+        )
+        mixed_cov_sqrt = _symsqrt(mixed_cov_matrix)
+        mixed_trace_term = torch.vmap(torch.trace)(mixed_cov_sqrt)
+
+    mean_sq_distance_term = torch.sum((q.mean - p.mean) ** 2, dim=(-1))
+
+    return (
+        mean_sq_distance_term
+        + torch.sum(q.variance, dim=-1)
+        + torch.sum(p.variance, dim=-1)
+        - 2.0 * mixed_trace_term
     )

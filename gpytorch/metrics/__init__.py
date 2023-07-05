@@ -6,6 +6,7 @@ from .metrics import (
     negative_log_predictive_density,
     quantile_coverage_error,
     standardized_mean_squared_error,
+    wasserstein,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "quantile_coverage_error",
     "standardized_mean_squared_error",
     "kl_divergence",
+    "wasserstein",
 ]
