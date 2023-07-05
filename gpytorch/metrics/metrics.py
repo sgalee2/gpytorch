@@ -116,6 +116,8 @@ def quantile_coverage_error(
 def kl_divergence(q: MultivariateNormal, p: MultivariateNormal):
     """Kullback-Leibler Divergence.
 
+    See for example: https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions
+
     :param q: First distributional argument. Can be a stack of multivariate normals.
     :param p: Second distributional argument. Can be a stack of multivariate normals.
     """
@@ -177,6 +179,8 @@ def _symsqrt(matrix):
 
 def wasserstein(q: MultivariateNormal, p: MultivariateNormal, order=2):
     """Wasserstein distance or earth mover's distance.
+
+    See for example: https://djalil.chafai.net/blog/2010/04/30/wasserstein-distance-between-two-gaussians/
 
     :param q: First distributional argument. Can be a stack of multivariate normals.
     :param p: Second distributional argument. Can be a stack of multivariate normals.
