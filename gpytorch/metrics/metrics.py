@@ -191,7 +191,7 @@ def wasserstein(q: MultivariateNormal, p: MultivariateNormal, order=2):
     if order != 2:
         raise NotImplementedError("Only order p=2 is supported currently.")
 
-    # Compute Cholesky necessary decompositions
+    # Compute individual terms
     q_cov_sqrt = _symsqrt(q.covariance_matrix)
     if p.batch_shape == torch.Size([]):
         mixed_cov_matrix = q_cov_sqrt @ p.covariance_matrix @ q_cov_sqrt
