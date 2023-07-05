@@ -180,6 +180,7 @@ def wasserstein(q: MultivariateNormal, p: MultivariateNormal, order=2):
 
     :param q: First distributional argument. Can be a stack of multivariate normals.
     :param p: Second distributional argument. Can be a stack of multivariate normals.
+    :param order: Order of the Wasserstein distance.
     """
 
     # Error checking
@@ -192,7 +193,6 @@ def wasserstein(q: MultivariateNormal, p: MultivariateNormal, order=2):
 
     # Compute Cholesky necessary decompositions
     q_cov_sqrt = _symsqrt(q.covariance_matrix)
-    # p_cov_chol = torch.linalg.cholesky(p.covariance_matrix, upper=False)
     if p.batch_shape == torch.Size([]):
         mixed_cov_matrix = q_cov_sqrt @ p.covariance_matrix @ q_cov_sqrt
         mixed_cov_sqrt = _symsqrt(mixed_cov_matrix)
