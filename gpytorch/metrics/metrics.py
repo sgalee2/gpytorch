@@ -75,14 +75,17 @@ def mean_standardized_log_loss(
 
     f_mean = pred_dist.mean
     f_var = pred_dist.variance
-    loss_model = (0.5 * torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)).mean(dim=combine_dim)
+    loss_model = (
+        0.5 * torch.log(2 * pi * f_var) + torch.square(test_y - f_mean) / (2 * f_var)
+    ).mean(dim=combine_dim)
     res = loss_model
 
     if train_y is not None:
         data_mean = train_y.mean(dim=combine_dim)
         data_var = train_y.var()
         loss_trivial_model = (
-            0.5 * torch.log(2 * pi * data_var) + torch.square(test_y - data_mean) / (2 * data_var)
+            0.5 * torch.log(2 * pi * data_var)
+            + torch.square(test_y - data_mean) / (2 * data_var)
         ).mean(dim=combine_dim)
         res = res - loss_trivial_model
 
@@ -107,3 +110,44 @@ def quantile_coverage_error(
     n_samples_within_bounds = ((test_y > lower) * (test_y < upper)).sum(combine_dim)
     fraction = n_samples_within_bounds / test_y.shape[combine_dim]
     return torch.abs(fraction - quantile / 100)
+
+
+def kl_divergence(q: MultivariateNormal, p: MultivariateNormal):
+    """Kullback-Leibler Divergence.
+
+    :param q: First distributional argument. Can be a stack of multivariate normals.
+    :param p: Second distributional argument. Can be a stack of multivariate normals.
+    """
+
+    # Error checking
+    if not q.event_shape == p.event_shape:
+        raise ValueError(
+            "Multivariate normal distributions must have same event shape."
+        )
+
+    # Compute Cholesky decompositions
+    q_cov_chol = torch.linalg.cholesky(q.covariance_matrix, upper=False)
+    p_cov_chol = torch.linalg.cholesky(p.covariance_matrix, upper=False)
+
+    # Forward substitution
+    M = torch.linalg.solve_triangular(p_cov_chol, q_cov_chol, upper=False, left=True)
+    mean_diff = p.mean - q.mean
+    y = torch.squeeze(
+        torch.linalg.solve_triangular(
+            p_cov_chol, torch.unsqueeze(mean_diff, dim=-1), upper=False, left=True
+        ),
+        dim=-1,
+    )
+
+    # Individual terms
+    trace_term = torch.sum(M**2, dim=(-2, -1))
+    mahanalobis_distance_term = torch.sum(y**2, dim=-1)
+    logdet_term = torch.sum(
+        torch.log(torch.diagonal(p_cov_chol, dim1=-2, dim2=-1))
+        - torch.log(torch.diagonal(q_cov_chol, dim1=-2, dim2=-1)),
+        dim=-1,
+    )
+
+    return (
+        0.5 * (trace_term - q.event_shape[0] + mahanalobis_distance_term) + logdet_term
+    )
