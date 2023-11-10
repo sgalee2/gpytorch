@@ -16,7 +16,7 @@ from .exact_marginal_log_likelihood import (
 from .gamma_robust_variational_elbo import GammaRobustVariationalELBO
 from .inducing_point_kernel_added_loss_term import InducingPointKernelAddedLossTerm
 from .kl_gaussian_added_loss_term import KLGaussianAddedLossTerm
-from .leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikelihood
+from .leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikelihood, LeaveOneActionOutPseudoLikelihood
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 from .predictive_log_likelihood import PredictiveLogLikelihood
@@ -54,6 +54,7 @@ __all__ = [
     "ExactMarginalLogLikelihood",
     "InducingPointKernelAddedLossTerm",
     "LeaveOneOutPseudoLikelihood",
+    "LeaveOneActionOutPseudoLikelihood",
     "KLGaussianAddedLossTerm",
     "MarginalLogLikelihood",
     "NoiseModelAddedLossTerm",
