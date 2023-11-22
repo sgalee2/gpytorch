@@ -158,15 +158,20 @@ class _SparseComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Functi
         Khat = Khat_representation_tree(*linear_op_args)
 
         # Log marginal likelihood
-        lml = -0.5 * (torch.inner(y, repr_weights) + logdet_estimate + Khat.shape[-1] * math.log(2 * math.pi))
+        num_actions = actions.shape[-1]
+        lml = -0.5 * (torch.inner(y, repr_weights) + logdet_estimate + num_actions * math.log(2 * math.pi))
 
         ctx.Khat = Khat
         ctx.compressed_repr_weights = compressed_repr_weights
         ctx.repr_weights = repr_weights
         ctx.actions = actions
-        ctx.cholfac_gram = cholfac_gram
+        ctx.cholfac_gram = (
+            cholfac_gram  # TODO: should we recompute this here for stability? And maybe also the compressed_rweights?
+        )
 
-        return lml
+        normalized_lml = lml.div(num_actions)
+
+        return normalized_lml
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor):
@@ -200,14 +205,14 @@ def _custom_derivative(
     if not len(args_with_grads):
         return tuple(None for _ in args)
 
-    def _neglml_derivative(*representation):
+    def _neg_normalized_lml_derivative(*representation):
         lin_op_copy = Khat.representation_tree()(*representation)
         gram_SKS = actions.mT @ (lin_op_copy._matmul(actions))
         quadratic_loss_term = torch.inner(compressed_repr_weights, gram_SKS @ compressed_repr_weights)
         complexity_term = torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
-        return -0.5 * (quadratic_loss_term - complexity_term)
+        return -0.5 * (quadratic_loss_term - complexity_term).div(actions.shape[-1])
 
-    actual_grads = deque(torch.autograd.functional.vjp(_neglml_derivative, Khat.representation())[1])
+    actual_grads = deque(torch.autograd.functional.vjp(_neg_normalized_lml_derivative, Khat.representation())[1])
 
     # Now make sure that the object we return has one entry for every item in args
     grads = []

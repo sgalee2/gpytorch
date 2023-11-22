@@ -129,6 +129,7 @@ class LeaveOneActionOutPseudoLikelihood(MarginalLogLikelihood):
 
         # Naive implementation
         loocv_objective = torch.zeros(())
+        jitter = 1e-6  # TODO: do we really need this?
 
         Khat_actions = Khat @ actions
         actions_Khat_actions = Khat_actions.T @ actions
@@ -143,7 +144,9 @@ class LeaveOneActionOutPseudoLikelihood(MarginalLogLikelihood):
 
             # Components of low-rank precision approximation C_{-j}
             actions_loo_Khat_actions_loo = actions_Khat_actions[idcs_loo, :][:, idcs_loo]
-            L_loo = torch.linalg.cholesky(actions_loo_Khat_actions_loo, upper=False)
+            L_loo = torch.linalg.cholesky(
+                actions_loo_Khat_actions_loo + jitter * torch.eye(num_actions - 1), upper=False
+            )
 
             # Mean prediction error
             pred_error = actions_targets_minus_mean[j] - actions_K_actions[j, :][idcs_loo] @ torch.cholesky_solve(
