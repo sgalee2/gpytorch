@@ -165,9 +165,7 @@ class _SparseComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Functi
         ctx.compressed_repr_weights = compressed_repr_weights
         ctx.repr_weights = repr_weights
         ctx.actions = actions
-        ctx.cholfac_gram = (
-            cholfac_gram  # TODO: should we recompute this here for stability? And maybe also the compressed_rweights?
-        )
+        ctx.cholfac_gram = cholfac_gram
 
         normalized_lml = lml.div(num_actions)
 
@@ -183,7 +181,7 @@ class _SparseComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Functi
             None,
             None,
             None,
-            *_custom_derivative(
+            *_custom_gradient(
                 ctx.Khat,
                 ctx.actions,
                 ctx.compressed_repr_weights,
@@ -192,7 +190,7 @@ class _SparseComputationAwareMarginalLogLikelihoodFunction(torch.autograd.Functi
         )
 
 
-def _custom_derivative(
+def _custom_gradient(
     Khat: operators.LinearOperator,
     actions: torch.Tensor,
     compressed_repr_weights: torch.Tensor,
@@ -205,14 +203,29 @@ def _custom_derivative(
     if not len(args_with_grads):
         return tuple(None for _ in args)
 
-    def _neg_normalized_lml_derivative(*representation):
+    # Gradient of LML with respect to kernel hyperparameters
+    def _neg_normalized_lml_gradient_helper(*representation):
+        """Helper function to compute gradient of LML with respect to kernel hyperparameters.
+
+        Implements the negative normalized gradient as a linear function of K with K instead of dK/dtheta. Then
+        the gradient can be taken by taking the gradient of this function with respect to theta.
+        """
         lin_op_copy = Khat.representation_tree()(*representation)
         gram_SKS = actions.mT @ (lin_op_copy._matmul(actions))
+
+        # Data fit term "gradient" with K instead of dK/dtheta
         quadratic_loss_term = torch.inner(compressed_repr_weights, gram_SKS @ compressed_repr_weights)
+
+        # Complexity term "gradient" with K instead of dK/dtheta
         complexity_term = torch.trace(torch.cholesky_solve(gram_SKS, cholfac_gram, upper=False))
+
         return -0.5 * (quadratic_loss_term - complexity_term).div(actions.shape[-1])
 
-    actual_grads = deque(torch.autograd.functional.vjp(_neg_normalized_lml_derivative, Khat.representation())[1])
+    # Compute gradient of LML with respect to kernel hyperparameters
+    actual_grads = deque(torch.autograd.functional.vjp(_neg_normalized_lml_gradient_helper, Khat.representation())[1])
+
+    # Gradient of LML with respect to policy hyperparameters
+    # TODO
 
     # Now make sure that the object we return has one entry for every item in args
     grads = []
