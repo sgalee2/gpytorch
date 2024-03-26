@@ -68,6 +68,30 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
+
+        if self.preconditioner_override is not None:
+            return self.preconditioner_override(self)
+
+        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
+            return None, None, None
+        
+        if settings.use_pivchol_preconditioner.on():
+            print("Using Pivoted Cholesky preconditioner")
+            return self._pivchol_preconditioner()
+        
+        elif settings.use_nyssvd_preconditioner.on():
+            print("Using Nystrom Randomised SVD Preconditioner")
+            return self._nyssvd_preconditioner()
+        
+        elif settings.use_rpchol_preconditioner.on():
+            print("Using randomised Pivoted Cholesky preconditioner")
+            return self._rpcholesky_preconditioner()
+        
+        else:
+            print("No preconditioner specified. Check gpytorch.settings")
+            raise NotImplementedError
+
+    def _pivchol_preconditioner(self):
         r"""
         Here we use a partial pivoted Cholesky preconditioner:
 
@@ -83,13 +107,6 @@ class AddedDiagLazyTensor(SumLazyTensor):
         - A LazyTensor `precondition_lt` that represents (L L^T + D)
         - The log determinant of (L L^T + D)
         """
-
-        if self.preconditioner_override is not None:
-            return self.preconditioner_override(self)
-
-        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
-            return None, None, None
-
         # Cache a QR decomposition [Q; Q'] R = [D^{-1/2}; L]
         # This makes it fast to compute solves and log determinants with it
         #
@@ -115,6 +132,51 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return (tensor / self._noise) - qqt
 
         return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+
+    def _nyssvd_preconditioner(self):
+        if self._q_cache is None:
+            device = self.device
+            n, k = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value()
+            Omega = torch.randn([n,k], device=device)
+            Q, _ = torch.linalg.qr(Omega)
+            Y = self._lazy_tensor.evaluate_kernel()._matmul(Q)
+            C = torch.linalg.cholesky(Q.T @ Y )
+            B_t = torch.linalg.solve_triangular(C, Y.T, upper=False)
+            U, S, _ = torch.linalg.svd(B_t.T, full_matrices=False)
+            self._piv_chol_self = U * S
+            self._init_cache()
+        def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
+            if self._constant_diag:
+                return (1 / self._noise) * (tensor - qqt)
+            return (tensor / self._noise) - qqt
+
+        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+    
+    def _rpcholesky_preconditioner(self):
+        if self._q_cache is None:
+            device = self.device
+            n, k = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value()
+            G = torch.zeros([k,n], device=device)
+            diags = self._lazy_tensor.diag()
+
+            for i in range(k):
+                idx = torch.multinomial(diags/torch.sum(diags), 1)
+                G[i,:] = (self._lazy_tensor[idx,:] - G[:i,idx].T @ G[:i,:]).evaluate() / torch.sqrt(diags[idx])
+                diags -= G[i,:]**2
+                diags = diags.clip(min=0)
+            self._piv_chol_self = G.T
+            self._init_cache()
+        def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
+            if self._constant_diag:
+                return (1 / self._noise) * (tensor - qqt)
+            return (tensor / self._noise) - qqt
+
+        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+    
 
     def _init_cache(self):
         *batch_shape, n, k = self._piv_chol_self.shape
