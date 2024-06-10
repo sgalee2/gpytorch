@@ -159,7 +159,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             device = self.device
             n, k = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value()
             G = torch.zeros([k,n], device=device)
-            diags = self._lazy_tensor.diag()
+            diags = self._lazy_tensor.diag().detach().clone()
 
             for i in range(k):
                 idx = torch.multinomial(diags/torch.sum(diags), 1)
