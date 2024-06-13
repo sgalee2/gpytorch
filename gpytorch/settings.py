@@ -545,13 +545,13 @@ class max_preconditioner_size(_value_context):
 
     _global_value = 15
 
-class use_pivchol_preconditioner(_feature_flag):
+class pivchol(_feature_flag):
     _default = False
 
-class use_nyssvd_preconditioner(_feature_flag):
+class nyssvd(_feature_flag):
     _default = False
 
-class use_rpchol_preconditioner(_feature_flag):
+class rpchol(_feature_flag):
     _default = False
 
 class max_nyssvd_preconditioner_size(_value_context):

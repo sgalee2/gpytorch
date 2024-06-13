@@ -75,15 +75,15 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
             return None, None, None
         
-        if settings.use_pivchol_preconditioner.on():
+        if settings.pivchol.on():
             print("Using Pivoted Cholesky preconditioner")
             return self._pivchol_preconditioner()
         
-        elif settings.use_nyssvd_preconditioner.on():
+        elif settings.nyssvd.on():
             print("Using Nystrom Randomised SVD Preconditioner")
             return self._nyssvd_preconditioner()
         
-        elif settings.use_rpchol_preconditioner.on():
+        elif settings.rpchol.on():
             print("Using randomised Pivoted Cholesky preconditioner")
             return self._rpcholesky_preconditioner()
         
