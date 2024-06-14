@@ -87,9 +87,13 @@ class AddedDiagLazyTensor(SumLazyTensor):
             print("Using randomised Pivoted Cholesky preconditioner")
             return self._rpcholesky_preconditioner()
         
-        else:
+        elif settings.use_alternating_projection.off():
             print("No preconditioner specified. Check gpytorch.settings")
-            raise NotImplementedError
+            raise NotImplementedError        
+        
+        else:
+            return None, None, None
+            
 
     def _pivchol_preconditioner(self):
         r"""
