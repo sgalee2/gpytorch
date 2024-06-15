@@ -4,11 +4,15 @@ import torch
 from .. import settings
 from .cholesky import psd_safe_cholesky
 
+"""
+Added warm start option for Alternating Projections through an initial guess argument in the function.
+"""
+
 
 def alternating_projection(
     train_x, covar_module, noise, rhs,
     batch, maxiter=None, tolerance=None,
-    tracker=None,
+    tracker=None, initial_guess=None
 ):
     """
     This implementation uses the default partition and makes the following easy:
@@ -38,7 +42,13 @@ def alternating_projection(
     normalized_rhs = rhs / rhs.norm(dim=-2, keepdim=True)
     r = normalized_rhs.detach().clone()
 
-    weights = torch.zeros_like(rhs)
+    if initial_guess is not None:
+        weights = (initial_guess / initial_guess.norm(dim=-2, keepdim=True)).detach().clone()
+        assert weights.shape == rhs.shape
+        r = normalized_rhs.detach().clone() - weights
+    else:
+        weights = torch.zeros_like(rhs)
+        r = normalized_rhs.detach().clone()
 
     # sub_mats = sub_mats.add_jitter(noise).evaluate() # memory overflow
     sub_mats = covar_module(train_x[:-remainder].view(num_batch, batch, d)).evaluate()
