@@ -554,6 +554,9 @@ class nyssvd(_feature_flag):
 class rpchol(_feature_flag):
     _default = False
 
+class svd(_feature_flag):
+    _default = False
+
 class max_nyssvd_preconditioner_size(_value_context):
     
     _global_value = 15

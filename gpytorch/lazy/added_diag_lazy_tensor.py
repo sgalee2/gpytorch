@@ -73,19 +73,28 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.preconditioner_override(self)
 
         if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
+            if settings.verbose.on():
+                print("Using no preconditioner")
             return None, None, None
         
         if settings.pivchol.on():
-            print("Using Pivoted Cholesky preconditioner")
+            if settings.verbose.on():
+                print("Using Pivoted Cholesky preconditioner")
             return self._pivchol_preconditioner()
         
         elif settings.nyssvd.on():
-            print("Using Nystrom Randomised SVD Preconditioner")
+            if settings.verbose.on():
+                print("Using Nystrom Randomised SVD Preconditioner")
             return self._nyssvd_preconditioner()
         
         elif settings.rpchol.on():
-            print("Using randomised Pivoted Cholesky preconditioner")
+            if settings.verbose.on():
+                print("Using randomised Pivoted Cholesky preconditioner")
             return self._rpcholesky_preconditioner()
+        
+        elif settings.svd.on():
+            if settings.verbose.on():
+                print(f"Using optimal {settings.max_preconditioner_size.value()} rank preconditioner")
         
         elif settings.use_alternating_projection.off():
             print("No preconditioner specified. Check gpytorch.settings")
@@ -171,6 +180,36 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 diags -= G[i,:]**2
                 diags = diags.clip(min=0)
             self._piv_chol_self = G.T
+            self._init_cache()
+        def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
+            if self._constant_diag:
+                return (1 / self._noise) * (tensor - qqt)
+            return (tensor / self._noise) - qqt
+
+        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+    
+    def _svd_preconditioner(self):
+        r"""
+        K \approx U_k S_k U_k^T,
+
+        where U_k is the first k columns of the full SVD of K, and S_k is diagonal with top k eigenvalues.
+
+        Only to be used on small problems as a benchmarking tool.
+        """
+        if self._q_cache is None:
+            device = self.device
+            n, k = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value()
+            if n > 10000:
+                raise NotImplementedError
+            vals, vecs = self._lazy_tensor.symeig(eigenvectors=True)
+            try:
+                vecs.evaluate()
+            except:
+                pass
+            u, s = vecs[:,-k:].to(device), vals[-k:].to(device)
+            self._piv_chol_self = u * (s ** 0.5)
             self._init_cache()
         def precondition_closure(tensor):
             # This makes it fast to compute solves with it
