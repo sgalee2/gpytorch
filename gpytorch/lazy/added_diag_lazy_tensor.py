@@ -204,11 +204,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
             n, k = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value()
             if n > 10000:
                 raise NotImplementedError
-            vals, vecs = self._lazy_tensor.symeig(eigenvectors=True)
-            try:
-                vecs.evaluate()
-            except:
-                pass
+            mat = self._lazy_tensor.evaluate()
+            vals, vecs = torch.linalg.eigh(mat)
             u, s = vecs[:,-k:].to(device), vals[-k:].to(device)
             self._piv_chol_self = u * (s ** 0.5)
             self._init_cache()
