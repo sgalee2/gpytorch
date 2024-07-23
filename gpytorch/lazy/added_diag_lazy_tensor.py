@@ -95,6 +95,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         elif settings.svd.on():
             if settings.verbose.on():
                 print(f"Using optimal {settings.max_preconditioner_size.value()} rank preconditioner")
+            return self._svd_preconditioner()
         
         elif settings.use_alternating_projection.off():
             print("No preconditioner specified. Check gpytorch.settings")
