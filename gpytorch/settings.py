@@ -797,6 +797,11 @@ class record_residual(_feature_flag):
     lst_residual_norm = []
     lst_residual_norm_each_rhs = []
 
+class record_nystrom_sample(_feature_flag):
+
+    _default = True
+    lst_sample = []
+
 
 class verbose(_feature_flag):
 
