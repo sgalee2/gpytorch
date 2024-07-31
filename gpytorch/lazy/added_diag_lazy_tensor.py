@@ -178,7 +178,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             for i in range(k):
                 idx = torch.multinomial(diags/torch.sum(diags), 1)
                 if settings.record_nystrom_sample():
-                    settings.record_nystrom_sample.lst_sample.append(idx)
+                    settings.record_nystrom_sample.lst_sample.append(idx.item())
                 G[i,:] = (self._lazy_tensor[idx,:] - G[:i,idx].T @ G[:i,:]).evaluate() / torch.sqrt(diags[idx])
                 diags -= G[i,:]**2
                 diags = diags.clip(min=0)
