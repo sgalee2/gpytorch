@@ -47,7 +47,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=None):
         )
 
     m = 0
-    while (m == 0) or (m < max_iter and torch.max(errors) > error_tol):
+    while (m == 0) or (m < max_iter):
         permuted_diags = torch.gather(matrix_diag, -1, permutation[..., m:])
         max_diag_values, max_diag_indices = torch.max(permuted_diags, -1)
 
