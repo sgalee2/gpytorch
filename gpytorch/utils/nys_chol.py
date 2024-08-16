@@ -19,7 +19,7 @@ def cholesky_helper(matrix, max_iter, alg):
         if alg == 'rp':
             idx = torch.multinomial(diags/torch.sum(diags), 1)
         elif alg == 'greedy':
-            idx = torch.argmax(diags)
+            idx = torch.argmax(diags).reshape(-1)
         else:
             raise RuntimeError("Algorithm {} not recognised".format(alg))
         
