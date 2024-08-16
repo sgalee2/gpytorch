@@ -10,6 +10,7 @@ from .qr import stable_qr
 from .stochastic_lq import StochasticLQ
 
 from .alternating_projection import alternating_projection
+from .nys_chol import cholesky_helper
 
 
 def prod(items):
@@ -42,4 +43,5 @@ __all__ = [
     "stable_pinverse",
     "stable_qr",
     "warnings",
+    "cholesky_helper"
 ]
