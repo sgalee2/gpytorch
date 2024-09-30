@@ -557,9 +557,16 @@ class rpchol(_feature_flag):
 class svd(_feature_flag):
     _default = False
 
+class nyssi(_feature_flag):
+    _default = False
+
 class max_nyssvd_preconditioner_size(_value_context):
     
     _global_value = 15
+
+class subspace_iters(_value_context):
+    
+    _global_value = 4
 
 
 class max_lanczos_quadrature_iterations(_value_context):
