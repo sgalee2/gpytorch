@@ -229,7 +229,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if self._q_cache is None:
             device = self.device
             n, k, power = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value(), settings.subspace_iters.value()
-            Omega = torch.randn([n,k], device = device)
+            Q = torch.randn([n,k], device = device)
             mat = self._lazy_tensor.evaluate_kernel()
             matmul = mat.matmul
             tmatmul = mat._t_matmul
