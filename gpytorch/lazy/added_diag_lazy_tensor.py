@@ -133,13 +133,10 @@ class AddedDiagLazyTensor(SumLazyTensor):
         # Through matrix determinant lemma, log |L L^T + D| reduces down to 2 log |R|
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
-            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_tensor, max_iter)
-            if torch.any(torch.isnan(self._piv_chol_self)).item():
-                warnings.warn(
-                    "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning.",
-                    NumericalWarning,
-                )
-                return None, None, None
+            G, idx = pivoted_cholesky.cholesky_helper(self._lazy_tensor, rank=max_iter, alg='greedy')
+            self._piv_chol_self = G.T
+            if settings.record_nystrom_sample:
+                settings.record_nystrom_sample.lst_sample = idx
             self._init_cache()
 
         # NOTE: We cannot memoize this precondition closure as it causes a memory leak
@@ -175,19 +172,11 @@ class AddedDiagLazyTensor(SumLazyTensor):
     
     def _rpcholesky_preconditioner(self):
         if self._q_cache is None:
-            device = self.device
-            n, k = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value()
-            G = torch.zeros([k,n], device=device)
-            diags = self._lazy_tensor.diag().detach().clone()
-
-            for i in range(k):
-                idx = torch.multinomial(diags/torch.sum(diags), 1)
-                if settings.record_nystrom_sample():
-                    settings.record_nystrom_sample.lst_sample.append(idx.item())
-                G[i,:] = (self._lazy_tensor[idx,:] - G[:i,idx].T @ G[:i,:]).evaluate() / torch.sqrt(diags[idx])
-                diags -= G[i,:]**2
-                diags = diags.clip(min=0)
+            max_iter = settings.max_preconditioner_size.value()
+            G, idx = pivoted_cholesky.cholesky_helper(self._lazy_tensor, rank = max_iter, alg = 'rp')
             self._piv_chol_self = G.T
+            if settings.record_nystrom_sample:
+                settings.record_nystrom_sample.lst_sample = idx
             self._init_cache()
         def precondition_closure(tensor):
             # This makes it fast to compute solves with it

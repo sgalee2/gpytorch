@@ -24,7 +24,7 @@ def cholesky_helper(mat, rank, alg, tol = 0):
             id = torch.multinomial(diags/torch.sum(diags), 1)
         else:
             raise NotImplementedError
-        idx.append(id)
+        idx.append(id.item())
         G[i,:] = (mat[id,:] - G[:i,id].T @ G[:i,:]).evaluate() / torch.sqrt(diags[id])
         diags -= G[i,:]**2
         diags = diags.clip(min=0)
