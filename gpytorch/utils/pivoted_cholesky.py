@@ -4,6 +4,38 @@ import torch
 
 from .. import settings
 
+def cholesky_helper(mat, rank, alg, tol = 0):
+
+    #set up
+    n, k = mat.shape[0], rank
+    device = mat.device
+
+    #initialise output
+    G = torch.zeros([k,n], device=device)
+    diags = mat.diag().detach().clone()
+    og_trace = torch.sum(diags).item()
+    idx = []
+
+    for i in range(k):
+
+        if alg == 'greedy':
+            id = torch.argmax(diags).reshape(1)
+        elif alg == 'rp':
+            id = torch.multinomial(diags/torch.sum(diags))
+        else:
+            raise NotImplementedError
+        idx.append(id)
+        G[i,:] = (mat[id,:] - G[:i,id].T @ G[:i,:]).evaluate() / torch.sqrt(diags[id])
+        diags -= G[i,:]**2
+        diags = diags.clip(min=0)
+
+        if tol > 0 and torch.sum(diags).item() <= tol * og_trace:
+            G = G[:i,:]
+            break
+        
+    return G, idx
+
+
 
 def pivoted_cholesky(matrix, max_iter, error_tol=None):
     from ..lazy import LazyTensor, lazify
