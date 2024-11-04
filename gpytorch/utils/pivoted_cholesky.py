@@ -21,7 +21,7 @@ def cholesky_helper(mat, rank, alg, tol = 0):
         if alg == 'greedy':
             id = torch.argmax(diags).reshape(1)
         elif alg == 'rp':
-            id = torch.multinomial(diags/torch.sum(diags))
+            id = torch.multinomial(diags/torch.sum(diags), 1)
         else:
             raise NotImplementedError
         idx.append(id)
@@ -32,7 +32,7 @@ def cholesky_helper(mat, rank, alg, tol = 0):
         if tol > 0 and torch.sum(diags).item() <= tol * og_trace:
             G = G[:i,:]
             break
-        
+
     return G, idx
 
 
