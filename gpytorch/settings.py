@@ -809,6 +809,10 @@ class record_nystrom_sample(_feature_flag):
     _default = True
     lst_sample = []
 
+class record_nystrom_err(_feature_flag):
+    _default = True
+    lst_diag_err = []
+
 
 class verbose(_feature_flag):
 

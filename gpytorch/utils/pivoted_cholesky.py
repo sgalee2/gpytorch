@@ -29,6 +29,9 @@ def cholesky_helper(mat, rank, alg, tol = 0):
         diags -= G[i,:]**2
         diags = diags.clip(min=0)
 
+        if settings.record_nystrom_err:
+            settings.record_nystrom_err.lst_diag_err.append(diags.norm())
+
         if tol > 0 and torch.sum(diags).item() <= tol * og_trace:
             G = G[:i,:]
             break
