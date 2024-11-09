@@ -103,8 +103,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self._svd_preconditioner()
         
         elif settings.use_alternating_projection.off():
-            print("No preconditioner specified. Check gpytorch.settings")
-            raise NotImplementedError        
+            raise NotImplementedError("No preconditioner specified, please see gpytorch.settings")        
         
         else:
             return None, None, None
