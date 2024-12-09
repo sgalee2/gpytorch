@@ -63,7 +63,7 @@ def alternating_projection(
 
             find_k = r[:-remainder].T.view(-1, num_batch, batch).norm(dim=-1).mean(dim=0)
             find_k.clip(min=0)
-            k = torch.multinomial(find_k / torch.sum(find_k), 1)
+            k = torch.multinomial(find_k / torch.sum(find_k), 1).item()
             indices = slice(k * batch, (k + 1) * batch)
 
             updates = torch.cholesky_solve(r[indices], batch_chol[k], upper=False)
