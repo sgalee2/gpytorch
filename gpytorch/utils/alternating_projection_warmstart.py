@@ -60,7 +60,10 @@ def alternating_projection(
 
     for i in range(maxiter):
         for j in range(num_batch):
-            k = r[:-remainder].T.view(-1, num_batch, batch).norm(dim=-1).mean(dim=0).argmax()
+
+            find_k = r[:-remainder].T.view(-1, num_batch, batch).norm(dim=-1).mean(dim=0)
+            find_k.clip(min=0)
+            k = torch.multinomial(find_k / torch.sum(find_k), 1)
             indices = slice(k * batch, (k + 1) * batch)
 
             updates = torch.cholesky_solve(r[indices], batch_chol[k], upper=False)
