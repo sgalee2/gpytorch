@@ -15,7 +15,7 @@ def sisvd(tensor):
     # Initialise tensors
     T = torch.zeros((n, k), dtype=dtype, device=device)
     block = torch.randn(n, k, dtype=dtype, device=device)
-    block, _ = torch.linalg.qr(block, mode="reduced")
+    Q, _ = torch.linalg.qr(block, mode="reduced")
 
     # Define matmul functions
     matmul = tensor.matmul
@@ -27,7 +27,7 @@ def sisvd(tensor):
         Q = torch.linalg.qr( tmatmul(Q), mode="reduced" )
     T = tmatmul(Q).T
     Uhat, s, V = torch.linalg.svd(T, full_matrices=False)
-    
+
     return V.T, s
 
 
