@@ -6,6 +6,7 @@ from .. import settings
 GPyTorch adapted function to compute several Krylov iteration algorithms.
 """
 
+
 def bksvd(tensor):
 
     # Key values
@@ -27,12 +28,12 @@ def bksvd(tensor):
         T = matmul(block)
         block = tmatmul(T)
         block, _ = torch.linalg.qr(block, mode="reduced")
-        K[:, i*k:(i+1):k] = block
+        K[:, i*k:(i+1)*k] = block
     # Final QR
     Q, _ = torch.linalg.qr(K, mode="reduced")
     T = matmul(Q)
 
     # Economy SVD
     Ut, St, _ = torch.linalg.svd(T, full_matrices=False)
-    
+
     return Ut[:,:k], St[:k]
