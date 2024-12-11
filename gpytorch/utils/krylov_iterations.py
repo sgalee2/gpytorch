@@ -23,8 +23,8 @@ def sisvd(tensor):
 
     # Main recursion
     for i in range(power):
-        Q = torch.linalg.qr( matmul(Q), mode="reduced" )
-        Q = torch.linalg.qr( tmatmul(Q), mode="reduced" )
+        Q, _ = torch.linalg.qr( matmul(Q), mode="reduced" )
+        Q, _ = torch.linalg.qr( tmatmul(Q), mode="reduced" )
     T = tmatmul(Q).T
     Uhat, s, V = torch.linalg.svd(T, full_matrices=False)
 
