@@ -10,6 +10,7 @@ from .. import settings
 from ..utils import broadcasting, pivoted_cholesky
 from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
+from ..utils.krylov_iterations import sisvd, bksvd
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
@@ -91,6 +92,11 @@ class AddedDiagLazyTensor(SumLazyTensor):
             if settings.verbose.on():
                 print("Using Nystrom Randomised Subspace Iteration Preconditioner")
             return self._nyssi_preconditioner()
+        
+        elif settings.nysbki.on():
+            if settings.verbose.on():
+                print("Using Nystrom Block Krylov Preconditioner")
+            return self._nysbki_preconditioner()
         
         elif settings.rpchol.on():
             if settings.verbose.on():
@@ -215,18 +221,24 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     def _nyssi_preconditioner(self):
         if self._q_cache is None:
-            device = self.device
-            n, k, power = self._lazy_tensor.shape[0], settings.max_preconditioner_size.value(), settings.subspace_iters.value()
-            Q = torch.randn([n,k], device = device)
             mat = self._lazy_tensor.evaluate_kernel()
-            matmul = mat.matmul
-            tmatmul = mat._t_matmul
-            for i in range(power):
-                Q, _ = torch.linalg.qr( matmul(Q) )
-                Q, _ = torch.linalg.qr( tmatmul(Q) )
-            B = tmatmul(Q).T
-            Uhat, s, Vt= torch.linalg.svd(B, full_matrices=False)
-            U = Q @ Uhat
+            U, s = sisvd(mat)
+            
+            self._piv_chol_self = U * (s ** 0.5)
+            self._init_cache()
+        def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
+            if self._constant_diag:
+                return (1 / self._noise) * (tensor - qqt)
+            return (tensor / self._noise) - qqt
+
+        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+    
+    def _nysbki_preconditioner(self):
+        if self._q_cache is None:
+            mat = self._lazy_tensor.evaluate_kernel()
+            U, s = bksvd(mat)
             self._piv_chol_self = U * (s ** 0.5)
             self._init_cache()
         def precondition_closure(tensor):
