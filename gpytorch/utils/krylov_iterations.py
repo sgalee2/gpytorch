@@ -6,6 +6,30 @@ from .. import settings
 GPyTorch adapted function to compute several Krylov iteration algorithms.
 """
 
+def sisvd(tensor):
+
+    # Key values
+    n, k, power = tensor.shape[0], settings.max_preconditioner_size.value(), settings.subspace_iters.value()
+    dtype, device = tensor.dtype, tensor.device
+
+    # Initialise tensors
+    T = torch.zeros((n, k), dtype=dtype, device=device)
+    block = torch.randn(n, k, dtype=dtype, device=device)
+    block, _ = torch.linalg.qr(block, mode="reduced")
+
+    # Define matmul functions
+    matmul = tensor.matmul
+    tmatmul = tensor._t_matmul
+
+    # Main recursion
+    for i in range(power):
+        Q = torch.linalg.qr( matmul(Q), mode="reduced" )
+        Q = torch.linalg.qr( tmatmul(Q), mode="reduced" )
+    T = tmatmul(Q).T
+    Uhat, s, V = torch.linalg.svd(T, full_matrices=False)
+    
+    return V.T, s
+
 
 def bksvd(tensor):
 
