@@ -9,9 +9,10 @@ def cholesky_helper(mat, rank, alg, tol = 0):
     #set up
     n, k = mat.shape[0], rank
     device = mat.device
+    dtype = mat.dtype
 
     #initialise output
-    G = torch.zeros([k,n], device=device)
+    G = torch.zeros([k,n], dtype=dtype, device=device)
     diags = mat.diag().detach().clone()
     og_trace = torch.sum(diags).item()
     idx = []
