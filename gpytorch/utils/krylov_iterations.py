@@ -86,4 +86,4 @@ def sinys(tensor):
     X = torch.linalg.solve_triangular(C, Y.T, upper=False).T
     u,s,v = torch.linalg.svd(X, full_matrices = False)
 
-return u, s
+    return u, s
