@@ -74,8 +74,8 @@ def sinys(tensor):
     Y = torch.randn(n,k)
 
     # Define matmul functions
-    matmul = t.matmul
-    tmatmul = t._t_matmul
+    matmul = tensor.matmul
+    tmatmul = tensor._t_matmul
 
     # Main recursion
     for i in range(power):
