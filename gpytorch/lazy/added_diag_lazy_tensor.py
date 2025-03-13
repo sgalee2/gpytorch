@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 
 from .. import settings
-from ..utils import broadcasting, pivoted_cholesky
+from ..utils import broadcasting, pivoted_cholesky, kmeans
 from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
 from ..utils.krylov_iterations import sisvd, bksvd
@@ -107,6 +107,9 @@ class AddedDiagLazyTensor(SumLazyTensor):
             if settings.verbose.on():
                 print(f"Using optimal {settings.max_preconditioner_size.value()} rank preconditioner")
             return self._svd_preconditioner()
+
+        elif settings.kmeans.on():
+            return self._kmeans_preconditioner()
         
         elif settings.use_alternating_projection.off():
             raise NotImplementedError("No preconditioner specified, please see gpytorch.settings")        
@@ -139,6 +142,45 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
             G, idx = pivoted_cholesky.cholesky_helper(self._lazy_tensor, rank=max_iter, alg='greedy')
+            self._piv_chol_self = G.T
+            if settings.record_nystrom_sample:
+                settings.record_nystrom_sample.lst_sample = idx
+            self._init_cache()
+
+        # NOTE: We cannot memoize this precondition closure as it causes a memory leak
+        def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
+            if self._constant_diag:
+                return (1 / self._noise) * (tensor - qqt)
+            return (tensor / self._noise) - qqt
+
+        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+
+    def _kmeans_preconditioner(self):
+        r"""
+        Here we use a partial pivoted Cholesky preconditioner:
+
+        K \approx L L^T + D
+
+        where L L^T is a low rank approximation, and D is a diagonal.
+        We can compute the preconditioner's inverse using Woodbury
+
+        (L L^T + D)^{-1} = D^{-1} - D^{-1} L (I + L D^{-1} L^T)^{-1} L^T D^{-1}
+
+        This function returns:
+        - A function `precondition_closure` that computes the solve (L L^T + D)^{-1} x
+        - A LazyTensor `precondition_lt` that represents (L L^T + D)
+        - The log determinant of (L L^T + D)
+        """
+        # Cache a QR decomposition [Q; Q'] R = [D^{-1/2}; L]
+        # This makes it fast to compute solves and log determinants with it
+        #
+        # Through woodbury, (L L^T + D)^{-1} reduces down to (D^{-1} - D^{-1/2} Q Q^T D^{-1/2})
+        # Through matrix determinant lemma, log |L L^T + D| reduces down to 2 log |R|
+        if self._q_cache is None:
+            max_iter = settings.max_preconditioner_size.value()
+            G, idx = kmeans.KMeans(self._lazy_tensor.x1, K = max_iter, Niter = 20)
             self._piv_chol_self = G.T
             if settings.record_nystrom_sample:
                 settings.record_nystrom_sample.lst_sample = idx
