@@ -1,6 +1,11 @@
 import time
 import torch
 from pykeops.torch import LazyTensor
+
+use_cuda = torch.cuda.is_available()
+dtype = torch.float32 if use_cuda else torch.float64
+device_id = "cuda:0" if use_cuda else "cpu"
+
 def KMeans(x, K=10, Niter=10, verbose=True):
     """Implements Lloyd's algorithm for the Euclidean metric."""
 
