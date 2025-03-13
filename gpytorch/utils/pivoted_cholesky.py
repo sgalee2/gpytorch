@@ -26,7 +26,7 @@ def cholesky_helper(mat, rank, alg, tol = 0):
         elif alg == 'rp':
             id = torch.multinomial(diags/torch.sum(diags), 1)
         elif alg == 'uniform':
-            id = ids[i]
+            id = ids[i].reshape(1)
         else:
             raise NotImplementedError
         idx.append(id.item())
