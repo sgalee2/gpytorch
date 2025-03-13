@@ -15,6 +15,8 @@ def cholesky_helper(mat, rank, alg, tol = 0):
     G = torch.zeros([k,n], dtype=dtype, device=device)
     diags = mat.diag().detach().clone()
     og_trace = torch.sum(diags).item()
+    if alg == 'uniform':
+        ids = torch.randperm(n)
     idx = []
 
     for i in range(k):
@@ -23,6 +25,8 @@ def cholesky_helper(mat, rank, alg, tol = 0):
             id = torch.argmax(diags).reshape(1)
         elif alg == 'rp':
             id = torch.multinomial(diags/torch.sum(diags), 1)
+        elif alg == 'uniform':
+            id = ids[i]
         else:
             raise NotImplementedError
         idx.append(id.item())
