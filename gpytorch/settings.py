@@ -548,6 +548,9 @@ class max_preconditioner_size(_value_context):
 class pivchol(_feature_flag):
     _default = False
 
+class kmeans(_feature_flag):
+    _default = False
+
 class nyssvd(_feature_flag):
     _default = False
 
