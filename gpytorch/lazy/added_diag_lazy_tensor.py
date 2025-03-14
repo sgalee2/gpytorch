@@ -53,8 +53,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         self._precond_logdet_cache = None
         self._q_cache = None
         self._r_cache = None
-        self._x1 = _lazy_tensor.x1
-        self._x2 = _lazy_tensor.x2
+        self._x1 = self._lazy_tensor.x1
+        self._x2 = self._lazy_tensor.x2
 
     def _matmul(self, rhs):
         return torch.addcmul(self._lazy_tensor._matmul(rhs), self._diag_tensor._diag.unsqueeze(-1), rhs)
