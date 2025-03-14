@@ -53,6 +53,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         self._precond_logdet_cache = None
         self._q_cache = None
         self._r_cache = None
+        self._x1 = _lazy_tensor.x1
+        self._x2 = _lazy_tensor.x2
 
     def _matmul(self, rhs):
         return torch.addcmul(self._lazy_tensor._matmul(rhs), self._diag_tensor._diag.unsqueeze(-1), rhs)
@@ -160,7 +162,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def _kmeans_preconditioner(self):
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
-            x = self._lazy_tensor.x1
+            x = self._x1
             _, z = kmeans.KMeans(x, K = max_iter, Niter = 20)
             cov = self._lazy_tensor.kernel
             k_tall = cov(x, z).evaluate()
