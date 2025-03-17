@@ -160,7 +160,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def _kmeans_preconditioner(self):
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
-            x = self._lazy_tensor._x1
+            x = self._lazy_tensor.x1
             _, z = kmeans.KMeans(x, K = max_iter, Niter = 20)
             cov = self._lazy_tensor.kernel
             k_tall = cov(x, z).evaluate()
