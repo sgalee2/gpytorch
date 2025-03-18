@@ -827,6 +827,9 @@ class verbose(_feature_flag):
 
     _default = False
 
+class p_verbose(_feature_flag):
+    _default = False
+
 
 class use_toeplitz(_feature_flag):
     """
