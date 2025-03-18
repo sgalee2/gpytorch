@@ -74,40 +74,42 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.preconditioner_override(self)
 
         if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print("Using no preconditioner")
             return None, None, None
         
         if settings.pivchol.on():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print("Using Pivoted Cholesky preconditioner")
             return self._pivchol_preconditioner()
         
         elif settings.nyssvd.on():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print("Using Nystrom Randomised SVD Preconditioner")
             return self._nyssvd_preconditioner()
 
         elif settings.nyssi.on():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print("Using Nystrom Randomised Subspace Iteration Preconditioner")
             return self._nyssi_preconditioner()
         
         elif settings.nysbki.on():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print("Using Nystrom Block Krylov Preconditioner")
             return self._nysbki_preconditioner()
         
         elif settings.rpchol.on():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print("Using randomised Pivoted Cholesky preconditioner")
             return self._rpcholesky_preconditioner()
 
         elif settings.uniform_chol.on():
+            if settings.p_verbose.on():
+                print("Using uniform Pivoted Cholesky preconditioner")
             return self._uniform_chol_preconditioner()
         
         elif settings.svd.on():
-            if settings.verbose.on():
+            if settings.p_verbose.on():
                 print(f"Using optimal {settings.max_preconditioner_size.value()} rank preconditioner")
             return self._svd_preconditioner()
 
