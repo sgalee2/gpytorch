@@ -557,6 +557,9 @@ class nyssvd(_feature_flag):
 class rpchol(_feature_flag):
     _default = False
 
+class uniform_chol(_feature_flag):
+    _default = False
+
 class svd(_feature_flag):
     _default = False
 
