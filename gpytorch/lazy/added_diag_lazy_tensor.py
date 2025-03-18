@@ -102,6 +102,9 @@ class AddedDiagLazyTensor(SumLazyTensor):
             if settings.verbose.on():
                 print("Using randomised Pivoted Cholesky preconditioner")
             return self._rpcholesky_preconditioner()
+
+        elif settings.uniform_chol.on():
+            return self._uniform_chol_preconditioner()
         
         elif settings.svd.on():
             if settings.verbose.on():
@@ -204,6 +207,23 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
             G, idx = pivoted_cholesky.cholesky_helper(self._lazy_tensor, rank = max_iter, alg = 'rp')
+            self._piv_chol_self = G.T
+            if settings.record_nystrom_sample:
+                settings.record_nystrom_sample.lst_sample = idx
+            self._init_cache()
+        def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
+            if self._constant_diag:
+                return (1 / self._noise) * (tensor - qqt)
+            return (tensor / self._noise) - qqt
+
+        return (precondition_closure, self._precond_lt, self._precond_logdet_cache)
+
+    def _uniform_chol_preconditioner(self):
+        if self._q_cache is None:
+            max_iter = settings.max_preconditioner_size.value()
+            G, idx = pivoted_cholesky.cholesky_helper(self._lazy_tensor, rank = max_iter, alg = 'uniform')
             self._piv_chol_self = G.T
             if settings.record_nystrom_sample:
                 settings.record_nystrom_sample.lst_sample = idx
