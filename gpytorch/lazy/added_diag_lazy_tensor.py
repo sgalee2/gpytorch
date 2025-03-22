@@ -195,7 +195,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             B_t = torch.linalg.solve_triangular(C, Y.T, upper=False)
             U, S, _ = torch.linalg.svd(B_t.T, full_matrices=False)
             if settings.precon_maxeig:
-                settings.record_maxeig.precon_maxeig.append( (S.min() ** 2).item() )
+                settings.precon_maxeig.lst_maxeig.append( (S.min() ** 2).item() )
             self._piv_chol_self = U * S
             self._init_cache()
         def precondition_closure(tensor):
