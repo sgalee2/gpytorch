@@ -143,6 +143,7 @@ def linear_cg(
         precond = False
     else:
         precond = True
+    errs, errs_all = [], []
 
     # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
     if max_tridiag_iter > max_iter:
@@ -282,10 +283,10 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
-        settings.record_residual.lst_residual_norm.append(residual_norm.mean().item())
+        errs.append(residual_norm.mean().item())
 
         residual_each_rhs = list(residual_norm[0].cpu().numpy())
-        settings.record_residual.lst_residual_norm_each_rhs.append(
+        errs_all.append(
             residual_each_rhs
         )
 
@@ -347,6 +348,9 @@ def linear_cg(
 
     if is_vector:
         result = result.squeeze(-1)
+
+    settings.record_residual.lst_residual_norm.append(errs)
+    settings.record_residual.lst_residual_norm_each_rhs.append(errs_all)
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
