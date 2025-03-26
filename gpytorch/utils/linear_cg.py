@@ -227,7 +227,7 @@ def linear_cg(
 
     # Start the iteration
     for k in range(n_iter):
-        
+        settings.record_iterates.cg_iterates.append(result.clone().mul(rhs_norm))
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
         mvms = matmul_closure(curr_conjugate_vec)
@@ -264,7 +264,6 @@ def linear_cg(
                 is_zero,
                 curr_conjugate_vec,
             )
-            settings.record_iterates.cg_iterates.append(result.clone())
         else:
             _jit_linear_cg_updates_no_precond(
                 mvms,
@@ -280,7 +279,6 @@ def linear_cg(
                 is_zero,
                 curr_conjugate_vec,
             )
-            settings.record_iterates.cg_iterates.append(result.clone())
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
         residual_norm.masked_fill_(rhs_is_zero, 0)
