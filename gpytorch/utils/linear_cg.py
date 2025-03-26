@@ -8,6 +8,8 @@ from .. import settings
 from .deprecation import bool_compat
 from .warnings import NumericalWarning
 
+from time import time
+
 
 def _default_preconditioner(x):
     return x.clone()
@@ -144,6 +146,7 @@ def linear_cg(
     else:
         precond = True
     errs, errs_all = [], []
+    iter_times = []
 
     # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
     if max_tridiag_iter > max_iter:
@@ -227,6 +230,7 @@ def linear_cg(
 
     # Start the iteration
     for k in range(n_iter):
+        t0 = time()
         settings.record_iterates.cg_iterates.append(result.clone().mul(rhs_norm))
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
@@ -333,6 +337,8 @@ def linear_cg(
 
             prev_alpha_reciprocal.copy_(alpha_reciprocal)
             prev_beta.copy_(beta_tridiag)
+            t1 = time()
+            iter_times.append(t1 - t0)
 
     # Un-normalize
     result = result.mul(rhs_norm)
@@ -352,6 +358,7 @@ def linear_cg(
 
     settings.record_residual.lst_residual_norm.append(errs)
     settings.record_residual.lst_residual_norm_each_rhs.append(errs_all)
+    settings.timer.cg_times = iter_times
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
