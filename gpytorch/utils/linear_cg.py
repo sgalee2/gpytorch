@@ -264,6 +264,7 @@ def linear_cg(
                 is_zero,
                 curr_conjugate_vec,
             )
+            settings.record_iterates.cg_iterates.append(result)
         else:
             _jit_linear_cg_updates_no_precond(
                 mvms,
@@ -279,6 +280,7 @@ def linear_cg(
                 is_zero,
                 curr_conjugate_vec,
             )
+            settings.record_iterates.cg_iterates.append(result)
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
         residual_norm.masked_fill_(rhs_is_zero, 0)
