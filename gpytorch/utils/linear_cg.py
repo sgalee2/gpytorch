@@ -337,8 +337,8 @@ def linear_cg(
 
             prev_alpha_reciprocal.copy_(alpha_reciprocal)
             prev_beta.copy_(beta_tridiag)
-            t1 = time()
-            iter_times.append(t1 - t0)
+        t1 = time()
+        iter_times.append(t1 - t0)
 
     # Un-normalize
     result = result.mul(rhs_norm)
