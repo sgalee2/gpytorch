@@ -813,6 +813,11 @@ class record_residual(_feature_flag):
     lst_residual_norm = []
     lst_residual_norm_each_rhs = []
 
+class record_iterates(_feature_flag):
+
+    _default = True
+    cg_iterates = []
+
 class precon_maxeig(_feature_flag):
 
     _default = True
