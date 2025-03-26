@@ -272,6 +272,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if self._q_cache is None:
             mat = self._lazy_tensor.evaluate_kernel()
             U, s = sisvd(mat)
+            if settings.precon_maxeig:
+                settings.precon_maxeig.lst_maxeig.append( (s.min() ** 2).item() )
             
             self._piv_chol_self = U * (s ** 0.5)
             self._init_cache()
