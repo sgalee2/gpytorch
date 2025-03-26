@@ -20,7 +20,6 @@ def _jit_linear_cg_updates(
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
     result = torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
-    settings.record_iterates.cg_iterates.append(result)
 
     # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
     beta.resize_as_(residual_inner_prod).copy_(residual_inner_prod)
