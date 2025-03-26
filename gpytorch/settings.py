@@ -820,7 +820,7 @@ class timer(_feature_flag):
 
 class record_iterates(_feature_flag):
 
-    _default = True
+    _default = False
     cg_iterates = []
 
 class precon_maxeig(_feature_flag):
